@@ -1,0 +1,5 @@
+type Point is record
+    var x : integer
+end
+var p : Point
+p.y := 10

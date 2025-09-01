@@ -1,0 +1,3 @@
+routine f() : integer is
+    return true
+end

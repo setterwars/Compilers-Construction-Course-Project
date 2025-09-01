@@ -1,0 +1,5 @@
+type IntArray is array[3] integer
+var arr : IntArray is [1, 2, 3]
+for i in arr loop
+    print i
+end

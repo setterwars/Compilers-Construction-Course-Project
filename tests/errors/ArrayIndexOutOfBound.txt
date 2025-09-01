@@ -1,0 +1,3 @@
+type IntArray is array[3] integer
+var arr : IntArray is [1, 2, 3]
+print arr[4]

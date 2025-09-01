@@ -1,0 +1,10 @@
+routine f(x : integer) : integer
+routine f(x : integer) : integer is
+    return g(x)
+end
+
+routine g(y : integer) : integer is
+    return y * 2
+end
+
+print f(4)

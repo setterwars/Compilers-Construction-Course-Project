@@ -1,0 +1,2 @@
+var flag : boolean
+flag := 3.14
