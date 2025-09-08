@@ -14,7 +14,7 @@ java {
 }
 
 application {
-    mainClass = "org.example.AppKt"
+    mainClass = "com.github.setterwars.compilercourse.MainKt"
 }
 
 tasks.jar {
