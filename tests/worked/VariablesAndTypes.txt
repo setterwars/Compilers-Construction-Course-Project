@@ -1,0 +1,6 @@
+var x : integer;
+var y : real is 3.14;
+var flag is true;
+
+type Index is integer;
+type Vector is array [10] real;

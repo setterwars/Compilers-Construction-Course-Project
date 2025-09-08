@@ -1,0 +1,10 @@
+type Point is record
+    var x : real;
+    var y : real;
+end
+
+var p : Point;
+p.x := 3.0;
+p.y := 4.0;
+
+print p.x, p.y;
