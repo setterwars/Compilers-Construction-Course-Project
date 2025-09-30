@@ -1,8 +1,8 @@
 # Лексер
 
-Запускаем лекскер (из корневой папки!):
+Запускаем парсер (из корневой папки!)
 
 `./gradlew :app:run app:run --args="../tests/worked/<Название файла теста>.txt"`
 
 Пример:
-`./gradlew app:run --args="../tests/worked/ForwardDecloration.txt"`
+`./gradlew app:run --args="../tests/worked/Fibonacci.txt"`

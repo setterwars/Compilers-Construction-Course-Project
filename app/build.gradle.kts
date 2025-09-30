@@ -16,9 +16,3 @@ java {
 application {
     mainClass = "com.github.setterwars.compilercourse.MainKt"
 }
-
-tasks.jar {
-    manifest {
-        attributes["Main-Class"] = application.mainClass.get()
-    }
-}
