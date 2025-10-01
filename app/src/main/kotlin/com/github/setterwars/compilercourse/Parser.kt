@@ -1,5 +1,7 @@
 package com.github.setterwars.compilercourse
 
+import kotlin.toString
+
 class Parser(private val tokens: List<Token>) {
     private var pos = 0
 
@@ -12,20 +14,17 @@ class Parser(private val tokens: List<Token>) {
         return token
     }
 
-    // Entry point to parser
     fun tokensToAst(): ProgramNode {
         val declarations = mutableListOf<ASTNode>()
         while (getNextToken()?.tokenType != TokenType.EOF) {
             declarations.add(parseDeclaration())
         }
-        expect(TokenType.EOF) // consume EOF once
+        expect(TokenType.EOF)
         return ProgramNode(declarations)
     }
 
-
-    // Parse one declaration (var, type, or routine)
-    private fun parseDeclaration(): ASTNode {
-        return when (getNextToken()?.tokenType) {
+    private fun parseDeclaration(): ASTNode =
+        when (getNextToken()?.tokenType) {
             TokenType.VAR -> parseVarDecl()
             TokenType.TYPE -> parseTypeDecl()
             TokenType.ROUTINE -> parseRoutineDecl()
@@ -38,8 +37,6 @@ class Parser(private val tokens: List<Token>) {
             TokenType.EOF -> parseEOF()
             else -> error("Unexpected token ${getNextToken()} at top-level")
         }
-    }
-
 
     private fun parseEOF(): ASTNode {
         expect(TokenType.EOF)
@@ -49,20 +46,16 @@ class Parser(private val tokens: List<Token>) {
     private fun parseVarDecl(): VarDeclNode {
         expect(TokenType.VAR)
         val name = expect(TokenType.IDENTIFIER).lexeme
-
         var type: TypeNode? = null
         var init: ExprNode? = null
-
         if (getNextToken()?.tokenType == TokenType.COLON) {
             advance()
             type = parseType()
         }
-
         if (getNextToken()?.tokenType == TokenType.IS) {
             advance()
             init = parseExpression()
         }
-
         return VarDeclNode(name, type, init)
     }
 
@@ -87,15 +80,12 @@ class Parser(private val tokens: List<Token>) {
             }
         }
         expect(TokenType.RPAREN)
-
         var returnType: TypeNode? = null
         if (getNextToken()?.tokenType == TokenType.COLON) {
             advance()
             returnType = parseType()
         }
-
         val body = parseRoutineBody()
-
         return RoutineDeclNode(name, params, returnType, body)
     }
 
@@ -106,18 +96,36 @@ class Parser(private val tokens: List<Token>) {
         return ParamNode(name, type)
     }
 
-    private fun parseRoutineBody(): BodyNode {
-        expect(TokenType.IS)
-        val items = mutableListOf<ASTNode>()
-        while (getNextToken()?.tokenType != TokenType.END) {
-            items.add(parseStatementOrDecl())
+    private fun parseBlockBody(terminators: Set<TokenType>): BodyNode {
+        while (getNextToken()?.tokenType == TokenType.NEW_LINE || getNextToken()?.tokenType == TokenType.SEMICOLON) {
+            advance()
         }
-        expect(TokenType.END)
+        val items = mutableListOf<ASTNode>()
+        while (true) {
+            val next = getNextToken()?.tokenType ?: break
+            if (next in terminators) break
+            if (next == TokenType.NEW_LINE || next == TokenType.SEMICOLON) {
+                advance()
+                continue
+            }
+            items.add(parseStatementOrDecl())
+            while (getNextToken()?.tokenType == TokenType.NEW_LINE || getNextToken()?.tokenType == TokenType.SEMICOLON) {
+                advance()
+            }
+        }
         return BodyNode(items)
     }
 
-    private fun parseStatementOrDecl(): ASTNode {
-        return when (getNextToken()?.tokenType) {
+    private fun parseRoutineBody(): BodyNode {
+        while (getNextToken()?.tokenType == TokenType.NEW_LINE) advance()
+        expect(TokenType.IS)
+        val items = parseBlockBody(setOf(TokenType.END))
+        expect(TokenType.END)
+        return items
+    }
+
+    private fun parseStatementOrDecl(): ASTNode =
+        when (getNextToken()?.tokenType) {
             TokenType.VAR -> parseVarDecl()
             TokenType.TYPE -> parseTypeDecl()
             TokenType.IDENTIFIER -> parseAssignOrCall()
@@ -130,13 +138,10 @@ class Parser(private val tokens: List<Token>) {
             TokenType.RETURN -> parseReturnNode()
             else -> error("Unexpected token ${getNextToken()} in body")
         }
-    }
 
-    // UPDATED: consume optional expression after RETURN to avoid leaving expression tokens unconsumed
     private fun parseReturnNode(): ASTNode {
         expect(TokenType.RETURN)
-        // If next token can start an expression, parse it and discard the result
-        when (getNextToken()?.tokenType) {
+        val starters = setOf(
             TokenType.IDENTIFIER,
             TokenType.INT_LITERAL,
             TokenType.REAL_LITERAL,
@@ -144,18 +149,14 @@ class Parser(private val tokens: List<Token>) {
             TokenType.FALSE,
             TokenType.LPAREN,
             TokenType.PLUS,
-            TokenType.MINUS -> {
-                // parseExpression will consume the tokens belonging to the returned expression
-                parseExpression()
-            }
-            else -> {
-                // no expression after return (e.g., `return` alone) — that's fine
-            }
+            TokenType.MINUS
+        )
+        if (getNextToken()?.tokenType in starters) {
+            parseExpression()
         }
         return ReturnNode()
     }
 
-    // ===== STATEMENTS =====
     private fun parseAssignOrCall(): ASTNode {
         val name = expect(TokenType.IDENTIFIER).lexeme
         return if (getNextToken()?.tokenType == TokenType.ASSIGN) {
@@ -183,7 +184,8 @@ class Parser(private val tokens: List<Token>) {
         expect(TokenType.WHILE)
         val cond = parseExpression()
         expect(TokenType.LOOP)
-        val body = parseRoutineBody()
+        val body = parseBlockBody(setOf(TokenType.END))
+        expect(TokenType.END)
         return WhileNode(cond, body)
     }
 
@@ -193,14 +195,22 @@ class Parser(private val tokens: List<Token>) {
         expect(TokenType.IN)
         val start = parseExpression()
         var end: ExprNode? = null
-        if (getNextToken()?.tokenType == TokenType.DOT) {
-            advance()
-            end = parseExpression()
+        when (getNextToken()?.tokenType) {
+            TokenType.RANGE -> { advance(); end = parseExpression() }
+            TokenType.DOT -> {
+                advance()
+                if (getNextToken()?.tokenType == TokenType.DOT) {
+                    advance()
+                    end = parseExpression()
+                }
+            }
+            else -> { /* No action needed for unexpected tokens */ }
         }
         val range = RangeNode(start, end)
         val reverse = if (getNextToken()?.tokenType == TokenType.REVERSE) { advance(); true } else false
         expect(TokenType.LOOP)
-        val body = parseRoutineBody()
+        val body = parseBlockBody(setOf(TokenType.END))
+        expect(TokenType.END)
         return ForNode(varName, range, reverse, body)
     }
 
@@ -208,11 +218,11 @@ class Parser(private val tokens: List<Token>) {
         expect(TokenType.IF)
         val cond = parseExpression()
         expect(TokenType.THEN)
-        val thenBody = parseRoutineBody()
+        val thenBody = parseBlockBody(setOf(TokenType.ELSE, TokenType.END))
         var elseBody: BodyNode? = null
         if (getNextToken()?.tokenType == TokenType.ELSE) {
             advance()
-            elseBody = parseRoutineBody()
+            elseBody = parseBlockBody(setOf(TokenType.END))
         }
         expect(TokenType.END)
         return IfNode(cond, thenBody, elseBody)
@@ -229,7 +239,6 @@ class Parser(private val tokens: List<Token>) {
         return PrintNode(args)
     }
 
-    // ===== TYPES =====
     private fun parseType(): TypeNode {
         val token = advance() ?: error("Unexpected end of input in type")
         return when (token.tokenType) {
@@ -240,9 +249,13 @@ class Parser(private val tokens: List<Token>) {
         }
     }
 
-    // ===== EXPRESSIONS =====
     private fun parseExpression(): ExprNode {
         var expr = parsePrimary()
+        while (getNextToken()?.tokenType in listOf(TokenType.LE, TokenType.LT, TokenType.GE, TokenType.GT, TokenType.EQ)) {
+            val op = advance()!!.tokenType.toString()
+            val right = parsePrimary()
+            expr = BinaryOpNode(expr, op, right)
+        }
         while (getNextToken()?.tokenType in listOf(TokenType.PLUS, TokenType.MINUS)) {
             val op = advance()!!.tokenType.toString()
             val right = parsePrimary()
@@ -258,9 +271,8 @@ class Parser(private val tokens: List<Token>) {
             TokenType.REAL_LITERAL -> LiteralNode(token.lexeme.toDouble())
             TokenType.IDENTIFIER -> {
                 val name = token.lexeme
-                // Function call or variable reference
                 if (getNextToken()?.tokenType == TokenType.LPAREN) {
-                    advance() // consume '('
+                    advance()
                     val args = mutableListOf<ExprNode>()
                     if (getNextToken()?.tokenType != TokenType.RPAREN) {
                         args.add(parseExpression())
@@ -270,22 +282,22 @@ class Parser(private val tokens: List<Token>) {
                         }
                     }
                     expect(TokenType.RPAREN)
-                    CallExprNode(name, args)   // must be an ExprNode subclass
+                    CallExprNode(name, args)
                 } else {
-                    VarRefNode(name)           // must be an ExprNode subclass
+                    VarRefNode(name)
                 }
             }
             TokenType.TRUE -> LiteralNode(true)
             TokenType.FALSE -> LiteralNode(false)
             TokenType.LPAREN -> {
-                val expr = parseExpression()
+                val inner = parseExpression()
                 expect(TokenType.RPAREN)
-                expr
+                inner
             }
             TokenType.PLUS, TokenType.MINUS -> {
                 val op = token.tokenType.toString()
-                val expr = parsePrimary()
-                UnaryOpNode(op, expr)         // must be an ExprNode subclass
+                val inner = parsePrimary()
+                UnaryOpNode(op, inner)
             }
             else -> error("Unexpected token $token in primary")
         }
