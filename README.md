@@ -1,4 +1,4 @@
-# Лексер
+# Парсер
 
 Запускаем парсер (из корневой папки!)
 
@@ -6,3 +6,10 @@
 
 Пример:
 `./gradlew app:run --args="../tests/worked/Fibonacci.txt"`
+
+Запускаем тесты (Из корневой папки! + работает только в unix):
+```shell
+chmod +x ./scripts/run_all_tests.sh
+./scripts/run_all_tests.sh
+```
+
