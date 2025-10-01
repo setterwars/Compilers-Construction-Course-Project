@@ -10,8 +10,8 @@ routine fibonacciIterative(n: integer): integer is
     if n <= 1 then
         return 1
     end
-    var a is 1;
-    var b is 1;
+    var a : integer is 1;
+    var b : integer is 1;
     for i in 2 .. n loop
         var c is a + b;
         a := b;
