@@ -52,6 +52,10 @@ data class RecordTypeNode(
     val fields: List<VarDeclNode>
 ) : TypeNode
 
+data class NamedTypeNode(
+    val name: String
+) : TypeNode
+
 // Nodes for statements
 
 data class AssignNode(
@@ -90,6 +94,7 @@ data class BodyNode(
     val items: List<ASTNode>
 ) : ASTNode
 
+data class ExprStmtNode(val expr: ExprNode) : StmtNode
 
 // Nodes for expressions
 data class BinaryOpNode(
@@ -139,7 +144,7 @@ data class EOFNode(
 ) : ASTNode
 
 data class ReturnNode(
-    val name: String = "return"
+    val expr: ExprNode? = null
 ) : ASTNode
 
 
@@ -158,6 +163,7 @@ fun prettyPrint(node: ASTNode, indent: Int = 0) {
                 is PrimitiveTypeNode -> t.kind.toString().lowercase()
                 is ArrayTypeNode -> "array"
                 is RecordTypeNode -> "record"
+                is NamedTypeNode -> t.name
                 null -> "inferred"
             }
             println("${pad}VarDecl ${node.name} : $typeName")
@@ -276,5 +282,3 @@ fun prettyPrint(node: ASTNode, indent: Int = 0) {
         else -> println("${pad}${node}")
     }
 }
-
-

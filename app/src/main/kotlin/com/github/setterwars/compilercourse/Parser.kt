@@ -16,10 +16,17 @@ class Parser(private val tokens: List<Token>) {
 
     fun tokensToAst(): ProgramNode {
         val declarations = mutableListOf<ASTNode>()
-        while (getNextToken()?.tokenType != TokenType.EOF) {
+        while (true) {
+            val nextToken = getNextToken()
+            if (nextToken == null || nextToken.tokenType == TokenType.EOF) break
             declarations.add(parseDeclaration())
+            while (getNextToken()?.tokenType == TokenType.NEW_LINE || getNextToken()?.tokenType == TokenType.SEMICOLON) {
+                advance()
+            }
         }
-        expect(TokenType.EOF)
+        if (getNextToken()?.tokenType == TokenType.EOF) {
+            expect(TokenType.EOF)
+        }
         return ProgramNode(declarations)
     }
 
@@ -33,7 +40,9 @@ class Parser(private val tokens: List<Token>) {
             TokenType.FOR -> parseFor()
             TokenType.PRINT -> parsePrint()
             TokenType.IDENTIFIER -> parseAssignOrCall()
-            TokenType.NEW_LINE -> parseNewLineNode()
+            TokenType.DOT -> { advance(); parseDeclaration(); }
+            TokenType.NEW_LINE, TokenType.SEMICOLON, TokenType.COMMA -> { advance(); parseDeclaration(); }
+            TokenType.INT_LITERAL, TokenType.REAL_LITERAL, TokenType.TRUE, TokenType.FALSE -> { advance(); parseDeclaration(); }
             TokenType.EOF -> parseEOF()
             else -> error("Unexpected token ${getNextToken()} at top-level")
         }
@@ -85,7 +94,16 @@ class Parser(private val tokens: List<Token>) {
             advance()
             returnType = parseType()
         }
-        val body = parseRoutineBody()
+        if (getNextToken()?.tokenType == TokenType.ARROW) {
+            advance()
+            val exprBody = parseExpression()
+            return RoutineDeclNode(name, params, returnType, BodyNode(listOf(ReturnNode(exprBody))))
+        }
+        val body = if (getNextToken()?.tokenType == TokenType.IS) {
+            parseRoutineBody()
+        } else {
+            null
+        }
         return RoutineDeclNode(name, params, returnType, body)
     }
 
@@ -136,6 +154,11 @@ class Parser(private val tokens: List<Token>) {
             TokenType.NEW_LINE -> parseNewLineNode()
             TokenType.EOF -> parseEOF()
             TokenType.RETURN -> parseReturnNode()
+            // Support expression statements
+            TokenType.INT_LITERAL, TokenType.REAL_LITERAL, TokenType.TRUE, TokenType.FALSE,
+            TokenType.LPAREN, TokenType.PLUS, TokenType.MINUS -> {
+                ExprStmtNode(parseExpression())
+            }
             else -> error("Unexpected token ${getNextToken()} in body")
         }
 
@@ -151,18 +174,37 @@ class Parser(private val tokens: List<Token>) {
             TokenType.PLUS,
             TokenType.MINUS
         )
-        if (getNextToken()?.tokenType in starters) {
-            parseExpression()
+        return if (getNextToken()?.tokenType in starters) {
+            ReturnNode(parseExpression())
+        } else {
+            ReturnNode()
         }
-        return ReturnNode()
     }
 
     private fun parseAssignOrCall(): ASTNode {
         val name = expect(TokenType.IDENTIFIER).lexeme
+        val selectors = mutableListOf<SelectorNode>()
+        // Parse selectors (array indexing, field access)
+        while (true) {
+            when (getNextToken()?.tokenType) {
+                TokenType.LBRACKET -> {
+                    advance()
+                    val indexExpr = parseExpression()
+                    expect(TokenType.RBRACKET)
+                    selectors.add(IndexAccessNode(indexExpr))
+                }
+                TokenType.DOT -> {
+                    advance()
+                    val field = expect(TokenType.IDENTIFIER).lexeme
+                    selectors.add(FieldAccessNode(field))
+                }
+                else -> break
+            }
+        }
         return if (getNextToken()?.tokenType == TokenType.ASSIGN) {
             advance()
             val value = parseExpression()
-            AssignNode(ModifiablePrimaryNode(name, emptyList()), value)
+            AssignNode(ModifiablePrimaryNode(name, selectors), value)
         } else {
             val args = mutableListOf<ExprNode>()
             if (getNextToken()?.tokenType == TokenType.LPAREN) {
@@ -244,24 +286,113 @@ class Parser(private val tokens: List<Token>) {
         return when (token.tokenType) {
             TokenType.INTEGER -> PrimitiveTypeNode(PrimitiveTypeNode.Kind.INTEGER)
             TokenType.REAL -> PrimitiveTypeNode(PrimitiveTypeNode.Kind.REAL)
+            TokenType.ARRAY -> {
+                expect(TokenType.LBRACKET)
+                val size = parseExpression()
+                expect(TokenType.RBRACKET)
+                val elementType = parseType()
+                ArrayTypeNode(size, elementType)
+            }
             TokenType.BOOLEAN -> PrimitiveTypeNode(PrimitiveTypeNode.Kind.BOOLEAN)
+            TokenType.RECORD -> {
+                val fields = mutableListOf<VarDeclNode>()
+                while (true) {
+                    // Skip any newlines/semicolons before next field or END
+                    while (getNextToken()?.tokenType == TokenType.NEW_LINE || getNextToken()?.tokenType == TokenType.SEMICOLON) {
+                        advance()
+                    }
+                    val next = getNextToken()?.tokenType
+                    if (next == TokenType.VAR) {
+                        fields.add(parseVarDecl())
+                    } else if (next == TokenType.END) {
+                        advance()
+                        break
+                    } else if (next == null) {
+                        error("Unexpected end of input in record type")
+                    } else {
+                        error("Unexpected token $next in record type, expected VAR or END")
+                    }
+                }
+                RecordTypeNode(fields)
+            }
+            TokenType.IDENTIFIER -> NamedTypeNode(token.lexeme)
             else -> error("Unexpected token $token in type")
         }
     }
 
+
     private fun parseExpression(): ExprNode {
-        var expr = parsePrimary()
+        return parseOr()
+    }
+
+    private fun parseOr(): ExprNode {
+        var expr = parseAnd()
+        while (getNextToken()?.tokenType == TokenType.OR) {
+            advance()
+            val right = parseAnd()
+            expr = BinaryOpNode(expr, "or", right)
+        }
+        return expr
+    }
+
+    private fun parseAnd(): ExprNode {
+        var expr = parseEquality()
+        while (getNextToken()?.tokenType == TokenType.AND) {
+            advance()
+            val right = parseEquality()
+            expr = BinaryOpNode(expr, "and", right)
+        }
+        return expr
+    }
+
+    private fun parseEquality(): ExprNode {
+        var expr = parseRelational()
         while (getNextToken()?.tokenType in listOf(TokenType.LE, TokenType.LT, TokenType.GE, TokenType.GT, TokenType.EQ)) {
             val op = advance()!!.tokenType.toString()
-            val right = parsePrimary()
-            expr = BinaryOpNode(expr, op, right)
-        }
-        while (getNextToken()?.tokenType in listOf(TokenType.PLUS, TokenType.MINUS)) {
-            val op = advance()!!.tokenType.toString()
-            val right = parsePrimary()
+            val right = parseRelational()
             expr = BinaryOpNode(expr, op, right)
         }
         return expr
+    }
+
+    private fun parseRelational(): ExprNode {
+        var expr = parseAdditive()
+        while (getNextToken()?.tokenType in listOf(TokenType.PLUS, TokenType.MINUS)) {
+            val op = advance()!!.tokenType.toString()
+            val right = parseAdditive()
+            expr = BinaryOpNode(expr, op, right)
+        }
+        return expr
+    }
+
+    // Add multiplicative precedence for STAR and SLASH
+    private fun parseAdditive(): ExprNode {
+        var expr = parseMultiplicative()
+        while (getNextToken()?.tokenType in listOf(TokenType.PLUS, TokenType.MINUS)) {
+            val op = advance()!!.tokenType.toString()
+            val right = parseMultiplicative()
+            expr = BinaryOpNode(expr, op, right)
+        }
+        return expr
+    }
+
+    private fun parseMultiplicative(): ExprNode {
+        var expr = parseUnary()
+        while (getNextToken()?.tokenType in listOf(TokenType.STAR, TokenType.SLASH)) {
+            val op = advance()!!.tokenType.toString()
+            val right = parseUnary()
+            expr = BinaryOpNode(expr, op, right)
+        }
+        return expr
+    }
+
+    private fun parseUnary(): ExprNode {
+        if (getNextToken()?.tokenType == TokenType.NOT) {
+            advance()
+            val expr = parseUnary()
+            return UnaryOpNode("not", expr)
+        }
+        return parsePrimary()
     }
 
     private fun parsePrimary(): ExprNode {
