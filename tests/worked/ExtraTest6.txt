@@ -1,0 +1,9 @@
+type Arr is array [5] integer
+var a : Arr
+for i in 1 .. 5 loop
+    a[i] := i * i
+end
+
+for x in a loop
+    print x
+end

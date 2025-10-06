@@ -1,0 +1,13 @@
+type Inner is record
+    var flag : boolean
+end
+
+type Outer is record
+    var id : integer
+    var data : Inner
+end
+
+var o : Outer
+o.id := 42
+o.data.flag := true
+print o.id, o.data.flag

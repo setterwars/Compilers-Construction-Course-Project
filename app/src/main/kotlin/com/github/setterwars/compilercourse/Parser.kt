@@ -89,6 +89,9 @@ class Parser(private val tokens: List<Token>) {
             }
         }
         expect(TokenType.RPAREN)
+        while (getNextToken()?.tokenType == TokenType.NEW_LINE || getNextToken()?.tokenType == TokenType.SEMICOLON) {
+            advance()
+        }
         var returnType: TypeNode? = null
         if (getNextToken()?.tokenType == TokenType.COLON) {
             advance()
@@ -154,7 +157,6 @@ class Parser(private val tokens: List<Token>) {
             TokenType.NEW_LINE -> parseNewLineNode()
             TokenType.EOF -> parseEOF()
             TokenType.RETURN -> parseReturnNode()
-            // Support expression statements
             TokenType.INT_LITERAL, TokenType.REAL_LITERAL, TokenType.TRUE, TokenType.FALSE,
             TokenType.LPAREN, TokenType.PLUS, TokenType.MINUS -> {
                 ExprStmtNode(parseExpression())
@@ -184,7 +186,6 @@ class Parser(private val tokens: List<Token>) {
     private fun parseAssignOrCall(): ASTNode {
         val name = expect(TokenType.IDENTIFIER).lexeme
         val selectors = mutableListOf<SelectorNode>()
-        // Parse selectors (array indexing, field access)
         while (true) {
             when (getNextToken()?.tokenType) {
                 TokenType.LBRACKET -> {
@@ -297,7 +298,6 @@ class Parser(private val tokens: List<Token>) {
             TokenType.RECORD -> {
                 val fields = mutableListOf<VarDeclNode>()
                 while (true) {
-                    // Skip any newlines/semicolons before next field or END
                     while (getNextToken()?.tokenType == TokenType.NEW_LINE || getNextToken()?.tokenType == TokenType.SEMICOLON) {
                         advance()
                     }
@@ -365,7 +365,6 @@ class Parser(private val tokens: List<Token>) {
         return expr
     }
 
-    // Add multiplicative precedence for STAR and SLASH
     private fun parseAdditive(): ExprNode {
         var expr = parseMultiplicative()
         while (getNextToken()?.tokenType in listOf(TokenType.PLUS, TokenType.MINUS)) {
