@@ -1,6 +1,8 @@
-var counter : integer is 1;
+routine main() is
+    var counter : integer is 1
 
-while counter <= 5 loop
-    print counter;
-    counter := counter + 1;
+    while counter <= 5 loop
+        print counter
+        counter := counter + 1
+    end
 end

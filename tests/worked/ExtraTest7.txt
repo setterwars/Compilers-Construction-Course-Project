@@ -7,7 +7,9 @@ type Outer is record
     var data : Inner
 end
 
-var o : Outer
-o.id := 42
-o.data.flag := true
-print o.id, o.data.flag
+routine main() is
+    var o : Outer
+    o.id := 42
+    o.data.flag := true
+    print o.id, o.data.flag
+end

@@ -1,5 +1,7 @@
-if true then
-    print 1
-else
-    print 0
+routine main() is
+    if true then
+        print 1
+    else
+        print 0
+    end
 end

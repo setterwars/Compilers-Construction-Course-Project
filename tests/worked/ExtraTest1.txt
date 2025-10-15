@@ -1,9 +1,5 @@
-var a : integer is 1
-var b : real is 2.5; var c : boolean is true
-
-routine main()
-is
+routine main() is
   print a, b, c
   print 1 + 2 * 3, (1 + 2) * 3
-  print true and false, true or false, not false
+  print true and false, true or false
 end

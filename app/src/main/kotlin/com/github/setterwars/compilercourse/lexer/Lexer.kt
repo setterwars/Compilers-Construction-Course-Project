@@ -1,4 +1,4 @@
-package com.github.setterwars.compilercourse
+package com.github.setterwars.compilercourse.lexer
 
 import java.io.File
 import java.io.FileInputStream
@@ -64,7 +64,8 @@ class Lexer(
                 val (tokenType, lexeme) = result
                 val span = Span(
                     line = currentLine,
-                    firstColumn = (currentColumn - (lexeme?.length ?: 0)).coerceAtLeast(0), // TODO: добавить нормальное расположение new line-ов
+                    firstColumn = (currentColumn - (lexeme?.length
+                        ?: 0)).coerceAtLeast(0), // TODO: добавить нормальное расположение new line-ов
                     lastColumn = (currentColumn - 1).coerceAtLeast(0),
                 )
                 // Если tokenType null, то граф подавился на этом символе (то есть граф не смог отыскать ни одного

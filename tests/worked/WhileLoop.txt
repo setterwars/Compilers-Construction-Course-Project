@@ -1,5 +1,7 @@
-var i : integer is 0
-while i < 3 loop
-    print i
-    i := i + 1
+routine main() is
+    var i : integer is 0
+    while i < 3 loop
+        print i
+        i := i + 1
+    end
 end

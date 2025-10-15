@@ -1,32 +1,36 @@
-routine fibonacciRecursive(n: integer): integer is
+routine fibonacciRecursive(n: integer, result : array[] integer): integer is
     if n <= 1 then
-        return 1
+        result[1] := 1
     else
-        return fibonacciRecursive(n - 1) + fibonacciRecursive(n - 2)
+        var result1 : array[1] integer
+        var result2 : array[1] integer
+        fibonacciRecursive(n - 1, result1)
+        fibonacciRecursive(n - 2, result2)
+        result[1] := result1[1] + result2[1]
     end
 end
 
-routine fibonacciIterative(n: integer): integer is
+routine fibonacciIterative(n: integer, result : array[] integer): integer is
     if n <= 1 then
-        return 1
+        result[1] := 1
+    else
+        var a : integer is 1
+        var b : integer is 1
+        for i in 2 .. n loop
+            var c : integer is a + b
+            a := b
+            b := c
+        end
+        result[1] := b
     end
-    var a : integer is 1;
-    var b : integer is 1;
-    for i in 2 .. n loop
-        var c is a + b;
-        a := b;
-        b := c
-    end
-    return b
 end
 
 routine fibonacci(n: integer, isIterative: boolean) is
-    var result: integer
+    var result: array[1] integer
     if isIterative then
-        result := fibonacciIterative(n)
+        fibonacciIterative(n, result)
     else
-        result := fibonacciRecursive(n)
+        fibonacciRecursive(n, result)
     end
-    print result
+    print result[1]
 end
-

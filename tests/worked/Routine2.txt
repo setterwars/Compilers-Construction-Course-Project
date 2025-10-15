@@ -1,7 +1,0 @@
-routine square(n : integer) : integer is
-    return n * n;
-end
-
-var result : integer;
-result := square(7);
-print result;

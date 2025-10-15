@@ -1,6 +1,4 @@
-package com.github.setterwars.compilercourse
-
-import kotlin.math.max
+package com.github.setterwars.compilercourse.lexer
 
 private interface Edge {
     fun canGo(c: Char): Boolean
@@ -93,8 +91,8 @@ private val ROOT = graph(rootNode = "root") {
     node("arrow", TokenType.ARROW, 1)
     edge("eq", "arrow") { c -> c == '>' }
 
-    node("semicolon", TokenType.SEMICOLON, 1)
-    edge("root", "semicolon") { c -> c == ';' }
+//    node("semicolon", TokenType.SEMICOLON, 1)
+//    edge("root", "semicolon") { c -> c == ';' }
 
     // relational operators
     node("lt", TokenType.LT, 1)
@@ -172,7 +170,6 @@ private val ROOT = graph(rootNode = "root") {
     keyword("print", TokenType.PRINT)
     keyword("routine", TokenType.ROUTINE)
     keyword("not", TokenType.NOT)
-    keyword("return", TokenType.RETURN)
 
     // --- layout ---
     node("newline", TokenType.NEW_LINE, 1)

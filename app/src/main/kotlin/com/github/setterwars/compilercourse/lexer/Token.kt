@@ -1,4 +1,4 @@
-package com.github.setterwars.compilercourse
+package com.github.setterwars.compilercourse.lexer
 
 data class Span(
     val line: Int,
@@ -68,9 +68,7 @@ enum class TokenType {
     PRINT,
     ROUTINE,
     NOT,
-    RETURN,
 
     // layout
     NEW_LINE, EOF,
-    FAT_ARROW
 }

@@ -1,5 +1,8 @@
 package com.github.setterwars.compilercourse
 
+import com.github.setterwars.compilercourse.lexer.Lexer
+import com.github.setterwars.compilercourse.lexer.Token
+import com.github.setterwars.compilercourse.lexer.TokenType
 import java.io.File
 
 fun main(args: Array<String>) {
@@ -9,7 +12,6 @@ fun main(args: Array<String>) {
     }
 
     val pathname = args[0]
-    val file = File(pathname)
     val lexer = Lexer(File(pathname))
     val tokens = mutableListOf<Token>()
     while (true) {
@@ -20,7 +22,7 @@ fun main(args: Array<String>) {
         }
     }
     val parser = Parser(tokens)
-    val ast = parser.parseProgram()
-    prettyPrint(ast)
+    val ast = parser.parseTokens()
+    println(ast.dump())
     return
 }

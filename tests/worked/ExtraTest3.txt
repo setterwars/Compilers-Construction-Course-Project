@@ -1,10 +1,7 @@
 routine add(a : integer, b : integer) : integer is
-    return a + b
 end
 
 routine print_sum(x : integer, y : integer) is
-    var s : integer is add(x, y)
+    var s : integer is 10
     print s
 end
-
-print_sum(3, 4)

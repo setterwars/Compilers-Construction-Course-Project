@@ -1,3 +1,5 @@
-for i in 1 .. 3 loop
-    print i
+routine main() is
+    for i in 1 .. 3 loop
+        print i
+    end
 end
