@@ -20,7 +20,7 @@ fun main(args: Array<String>) {
         }
     }
     val parser = Parser(tokens)
-    val ast = parser.tokensToAst()
+    val ast = parser.parseProgram()
     prettyPrint(ast)
     return
 }

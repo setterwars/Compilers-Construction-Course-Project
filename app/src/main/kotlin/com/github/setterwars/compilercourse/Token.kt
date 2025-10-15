@@ -72,4 +72,5 @@ enum class TokenType {
 
     // layout
     NEW_LINE, EOF,
+    FAT_ARROW
 }
