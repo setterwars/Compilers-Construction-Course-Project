@@ -1,0 +1,41 @@
+routine merge(a: array[] integer, temp: array[] integer, left: integer, mid: integer, right: integer) is
+    var i : integer is left
+    var j : integer is mid + 1
+    var k : integer is left
+
+    while i <= mid and j <= right loop
+        if a[i] <= a[j] then
+            temp[k] := a[i]
+            i := i + 1
+        else
+            temp[k] := a[j]
+            j := j + 1
+        end
+        k := k + 1
+    end
+
+    while i <= mid loop
+        temp[k] := a[i]
+        i := i + 1
+        k := k + 1
+    end
+
+    while j <= right loop
+        temp[k] := a[j]
+        j := j + 1
+        k := k + 1
+    end
+
+    for t in left .. right loop
+        a[t] := temp[t]
+    end
+end
+
+routine mergeSortRange(a: array[] integer, temp: array[] integer, left: integer, right: integer) is
+    if left < right then
+        var mid : integer is (left + right) / 2
+        mergeSortRange(a, temp, left, mid)
+        mergeSortRange(a, temp, mid + 1, right)
+        merge(a, temp, left, mid, right)
+    end
+end

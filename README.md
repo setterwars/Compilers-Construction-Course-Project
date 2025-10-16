@@ -1,7 +1,7 @@
 # Парсер
 
 **Запускаем парсер (из корневой папки!):**
-`./gradlew :app:run --args="<Path to file> [<Path to mermaid diagram> [<need truncation?>]]""`
+`./gradlew :app:run --args="<путь к файлу> [--file=PATH] [--truncate=true|false] [--max-depth=INT]"`
 
 Примеры:
 
@@ -9,17 +9,18 @@
 
 **Если нужно сгенерировать mermaid диаграмму, то запускать**
 
-`./gradlew app:run --args="../tests/worked/Fibonacci.txt ../output/FibonacciMermaid.md true"`
+`./gradlew app:run --args="../tests/worked/Fibonacci.txt --file=../output/FibonacciMermaid.md --truncate=true"`
 
 Больше примеров:
-- `./gradlew app:run --args="../tests/worked/APlusB.txt ../output/APlusB.md false"`
-- `./gradlew app:run --args="../tests/worked/APlusB.txt ../output/APlusB.md true"`
+- `./gradlew app:run --args="../tests/worked/APlusB.txt --file=../output/APlusB.md --truncate=false"`
+- `./gradlew app:run --args="../tests/worked/APlusB.txt --file=../output/APlusB.md --truncate=true"`
 
-- `./gradlew app:run --args="../tests/worked/While.txt ../output/While.md false"`
-- `./gradlew app:run --args="../tests/worked/While.txt ../output/While.md true"`
+- `./gradlew app:run --args="../tests/worked/While.txt --file=../output/While.md --truncate=false"`
+- `./gradlew app:run --args="../tests/worked/While.txt --file=../output/While.md --truncate=true"`
 
-- `./gradlew app:run --args="../tests/worked/EuclideanDistance.txt ../output/EuclideanDistance.md false"`
-- `./gradlew app:run --args="../tests/worked/EuclideanDistance.txt ../output/EuclideanDistance.md true"`
+- `./gradlew app:run --args="../tests/worked/EuclideanDistance.txt --file=../output/EuclideanDistance.md --truncate=false"`
+- `./gradlew app:run --args="../tests/worked/EuclideanDistance.txt --file=../output/EuclideanDistance.md --truncate=true"`
+- `./gradlew app:run --args="../tests/worked/EuclideanDistance.txt --file=../output/EuclideanDistance.md --truncate=false --max-depth=3"`
 
 Если диаграмма слишком большая, то посмотреть можно на https://www.mermaidflow.app/editor
 

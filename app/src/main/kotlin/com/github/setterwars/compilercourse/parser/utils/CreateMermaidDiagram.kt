@@ -37,40 +37,38 @@ val semanticTerminalClasses: Set<KClass<out Terminal>> = setOf(
     TReverse::class
 )
 
-fun createMermaidDiagram(writer: Writer, symbol: Symbol, truncate: Boolean = false) {
+fun createMermaidDiagram(writer: Writer, symbol: Symbol, truncate: Boolean = false, maxDepth: Int = -1) {
     with(writer) {
         write("```mermaid\n")
         write("graph TD\n")
-        if (truncate) {
-            write(generateSequencesTruncated(symbol).first.joinToString("\n") { "   $it" })
-        } else {
-            write(generateSequences(symbol).joinToString("\n") { "   $it" })
-        }
+        write(
+            generateSequences(
+                symbol,
+                currentDepth = 0,
+                truncate = truncate,
+                maxDepth = maxDepth
+            ).first.joinToString("\n") { "   $it" })
         write("\n```")
     }
 }
 
-private fun generateSequences(symbol: Symbol): List<String> {
-    return when (symbol) {
-        is Terminal -> emptyList()
-        is NonTerminal -> buildList {
-            for (child in symbol.children) {
-                add(connection(symbol, child))
-                addAll(generateSequences(child))
-            }
-        }
-    }
-}
 
-private fun generateSequencesTruncated(symbol: Symbol): Pair<List<String>, Symbol> {
+private fun generateSequences(
+    symbol: Symbol,
+    currentDepth: Int = 0,
+    truncate: Boolean,
+    maxDepth: Int = -1
+): Pair<List<String>, Symbol> {
     return when (symbol) {
         is Terminal -> (emptyList<String>() to symbol)
         is NonTerminal -> {
-            if (symbol.children.size > 1 || symbol is ProgramNode) {
+            if (currentDepth == maxDepth) {
+                emptyList<String>() to symbol
+            } else if (!truncate || symbol.children.size > 1 || symbol is ProgramNode) {
                 val list = buildList {
                     for (child in symbol.children) {
-                        val (generated, nextChild) = generateSequencesTruncated(child)
-                        if (nextChild is NonTerminal || (nextChild is Terminal && nextChild::class in semanticTerminalClasses)) {
+                        val (generated, nextChild) = generateSequences(child, currentDepth + 1, truncate, maxDepth)
+                        if (nextChild is NonTerminal || (nextChild is Terminal && (!truncate || nextChild::class in semanticTerminalClasses))) {
                             add(connection(symbol, nextChild))
                         }
                         addAll(generated)
@@ -78,7 +76,7 @@ private fun generateSequencesTruncated(symbol: Symbol): Pair<List<String>, Symbo
                 }
                 list to symbol
             } else if (symbol.children.isNotEmpty()) {
-                generateSequencesTruncated(symbol.children[0])
+                generateSequences(symbol.children[0], currentDepth + 1, truncate, maxDepth)
             } else {
                 emptyList<String>() to symbol
             }
