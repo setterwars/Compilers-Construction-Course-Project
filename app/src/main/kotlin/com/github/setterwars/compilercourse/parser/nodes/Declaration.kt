@@ -6,7 +6,7 @@ data class Program(
 
 sealed interface Declaration
 
-sealed interface SimpleDeclaration : Declaration, Body
+sealed interface SimpleDeclaration : Declaration
 
 sealed interface VariableDeclaration : SimpleDeclaration
 
@@ -20,3 +20,8 @@ data class VariableDeclarationNoType(
     val identifier: Identifier,
     val initialValue: Expression,
 ) : VariableDeclaration
+
+data class TypeDeclaration(
+    val identifier: Identifier,
+    val type: Type,
+) : SimpleDeclaration

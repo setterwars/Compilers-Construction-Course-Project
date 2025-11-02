@@ -7,30 +7,67 @@ import com.github.setterwars.compilercourse.parser.Parser
 import java.io.StringReader
 
 fun main(args: Array<String>) {
-    val expressionSamples = arrayOf(
-        "42",
-        "-17",
-        "+3.14",
-        "not\n 0",
-        "value + 5",
-        "(x \n-\n 2) * y + \n3",
-        "+arr[index + 1] % (-limit - not 0)",
-        "record4.field1 xor -10 >= arr[idx].inner.value * +7",
-        "count + offset < limit - 1",
-        "true and false xor not 0 = 0",
-        "(((matrix[i + 1].rows[j - 2].value * (vector[k] + 10))\n\n\n / +3 % not 0) + record.field1 - arr2[idx].inner.value) >= (+5 - shifts[p].delta) and (data[limit - 1].next.ptr.value + totals[section].count % not 0) <= (results[0].score - not 0) xor (flags[index] = true) or (((history[current].entries[last].metric - history[current].entries[last - 1].metric) / (buffers[offset].capacity % 3)) /= (not 0 + cache[h].slots[g]))",
+    val comprehensiveParserCases = arrayOf(
+        // 1) Primitives, declared type, precedence, signs, boolean ops, relations, modulo
         """
-            
-            not x.field1[+3 * (y[2].z - -4.5)] 
-            * (+7 % -2 / 3.14) 
-            + ((true and false) xor (false or true)) 
-            - ((+5 <= -6) and (7 > 8 or 9 >= 10 xor 11 < 12))
-            and ((+a[1].b.c * 2.0 - (-x2 / 3 % +4)) 
-            or ((true) xor (false and (z1 + z2 - z3))))
-        """.trimIndent(),
+type Alias is integer
+var x: integer
+var y is -42
+var z: boolean is false and (1 + 2 * 3 >= 7) xor true
+var r: real is +3.5 / 7
+var a: Alias is 5
+var b: integer is 10 % 3
+  """.trimIndent(),
+
+        // 2) Arrays (unsized/sized/nested), Identifier as Type, size as expressions
+        """
+var n: integer is 2
+var cols: integer is 4
+var size: integer is 3 + n
+var a1: array[] real
+var a2: array[10] integer
+var a3: array[size] boolean
+var grid: array[2] array[3] boolean
+type Row is array[cols] integer
+type Table is array[n] Row
+var t: Table
+  """.trimIndent(),
+
+        // 3) Records (inline + declared) with mixed var forms inside
+        """
+var point: record var x: real var y: real end
+type R is record var i: integer var j is 3 end
+var r1: R
+var r2: record var on: boolean is true var level: integer end
+  """.trimIndent(),
+
+        // 4) Mixed/nested user types: arrays of records and records with arrays
+        """
+type Pixel is record var r: integer var g: integer var b: integer end
+var width: integer is 2
+var height: integer is 3
+var pixels: array[width*height] Pixel
+var map: array[] record var key: integer var value: real end
+var complex: record var coords: array[3] real var flags: array[] boolean end
+  """.trimIndent(),
+
+        // 5) ModifiablePrimary chaining (field access & indexing) in initializers
+        """
+type Vec2 is record var x: real var y: real end
+type Mat is array[3] array[3] real
+type Nested is record var a: record var b: array[10] integer end end
+var v: Vec2
+var M1: Mat
+var nst: Nested
+var vx: real is v.x
+var cell: real is M1[1][2]
+var v2: integer is nst.a.b[3]
+var check: boolean is (M1[0][0] < 10) and (vx /= 0.0 or false)
+  """.trimIndent()
     )
 
-    val lexer = Lexer(StringReader(expressionSamples[11]))
+
+    val lexer = Lexer(StringReader(comprehensiveParserCases[4]))
     val tokens = mutableListOf<Token>()
     while (true) {
         val token = lexer.nextToken()
@@ -39,6 +76,6 @@ fun main(args: Array<String>) {
     }
     println(tokens.map { it.tokenType })
     val parser = Parser(tokens)
-    val expression = parser.parse()
+    val program = parser.parse()
     return
 }
