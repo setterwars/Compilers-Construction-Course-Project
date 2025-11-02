@@ -1,139 +1,44 @@
 package com.github.setterwars.compilercourse
 
-import com.github.setterwars.compilercourse.parser.Parser
 import com.github.setterwars.compilercourse.lexer.Lexer
 import com.github.setterwars.compilercourse.lexer.Token
 import com.github.setterwars.compilercourse.lexer.TokenType
-import com.github.setterwars.compilercourse.parser.dump
-import com.github.setterwars.compilercourse.parser.utils.createMermaidDiagram
-import java.io.File
-import java.io.FileWriter
-
-private data class CliOptions(
-    val inputPath: String,
-    val outputFile: String?,     // --file
-    val truncate: Boolean?,      // --truncate
-    val maxDepth: Int?           // --max-depth
-)
+import com.github.setterwars.compilercourse.parser.Parser
+import java.io.StringReader
 
 fun main(args: Array<String>) {
-    val opts = parseArgs(args) ?: run {
-        printUsage()
-        return
-    }
+    val expressionSamples = arrayOf(
+        "42",
+        "-17",
+        "+3.14",
+        "not\n 0",
+        "value + 5",
+        "(x \n-\n 2) * y + \n3",
+        "+arr[index + 1] % (-limit - not 0)",
+        "record4.field1 xor -10 >= arr[idx].inner.value * +7",
+        "count + offset < limit - 1",
+        "true and false xor not 0 = 0",
+        "(((matrix[i + 1].rows[j - 2].value * (vector[k] + 10))\n\n\n / +3 % not 0) + record.field1 - arr2[idx].inner.value) >= (+5 - shifts[p].delta) and (data[limit - 1].next.ptr.value + totals[section].count % not 0) <= (results[0].score - not 0) xor (flags[index] = true) or (((history[current].entries[last].metric - history[current].entries[last - 1].metric) / (buffers[offset].capacity % 3)) /= (not 0 + cache[h].slots[g]))",
+        """
+            
+            not x.field1[+3 * (y[2].z - -4.5)] 
+            * (+7 % -2 / 3.14) 
+            + ((true and false) xor (false or true)) 
+            - ((+5 <= -6) and (7 > 8 or 9 >= 10 xor 11 < 12))
+            and ((+a[1].b.c * 2.0 - (-x2 / 3 % +4)) 
+            or ((true) xor (false and (z1 + z2 - z3))))
+        """.trimIndent(),
+    )
 
-    val lexer = Lexer(File(opts.inputPath))
+    val lexer = Lexer(StringReader(expressionSamples[11]))
     val tokens = mutableListOf<Token>()
     while (true) {
         val token = lexer.nextToken()
         tokens.add(token)
         if (token.tokenType == TokenType.EOF) break
     }
-
+    println(tokens.map { it.tokenType })
     val parser = Parser(tokens)
-    val ast = parser.parseTokens()
-
-    if (opts.outputFile == null) {
-        println(ast.dump())
-    } else {
-        // Write Mermaid diagram to --file path
-        val file = File(opts.outputFile)
-        file.parentFile?.let { parent ->
-            if (!parent.exists()) parent.mkdirs()
-        }
-        FileWriter(file).use { fw ->
-            val needTruncation = opts.truncate ?: false
-            val maxDepth = opts.maxDepth ?: -1
-            createMermaidDiagram(fw, ast, needTruncation, maxDepth = maxDepth)
-        }
-    }
-}
-
-/**
- * Parse CLI args.
- * Positional: first non-flag is the input path (required).
- * Flags:
- *   --file=PATH
- *   --truncate=true|false      (optional → null if absent)
- *   --max-depth=INT            (optional → null if absent)
- */
-private fun parseArgs(args: Array<String>): CliOptions? {
-    var inputPath: String? = null
-    var outputFile: String? = null
-    var truncate: Boolean? = null
-    var maxDepth: Int? = null
-
-    for (raw in args) {
-        if (!raw.startsWith("--")) {
-            // First positional arg = input path
-            if (inputPath == null) {
-                inputPath = raw
-            } else {
-                // Extra positional args are not expected; treat as error
-                return null
-            }
-            continue
-        }
-
-        val (key, valueRaw) = splitFlag(raw) ?: return null
-        val value = valueRaw?.trimQuotes()
-
-        when (key) {
-            "file" -> {
-                // Allow empty string (means “create/overwrite empty filename” – typically not useful)
-                outputFile = value
-            }
-            "truncate" -> {
-                if (value == null) return null
-                truncate = value.toBooleanStrictOrNull() ?: return null
-            }
-            "max-depth" -> {
-                if (value == null) return null
-                maxDepth = value.toIntOrNull() ?: return null
-            }
-            else -> return null
-        }
-    }
-
-    if (inputPath == null) return null
-
-    return CliOptions(
-        inputPath = inputPath!!,
-        outputFile = outputFile,
-        truncate = truncate,
-        maxDepth = maxDepth
-    )
-}
-
-private fun splitFlag(arg: String): Pair<String, String?>? {
-    if (!arg.startsWith("--")) return null
-    val withoutDashes = arg.removePrefix("--")
-    val idx = withoutDashes.indexOf('=')
-    return if (idx >= 0) {
-        val key = withoutDashes.substring(0, idx)
-        val value = withoutDashes.substring(idx + 1)
-        if (key.isBlank()) null else key to value
-    } else {
-        if (withoutDashes.isBlank()) null else withoutDashes to null
-    }
-}
-
-private fun String.trimQuotes(): String =
-    if ((startsWith('"') && endsWith('"')) || (startsWith('\'') && endsWith('\''))) {
-        substring(1, length - 1)
-    } else this
-
-private fun printUsage() {
-    println(
-        """
-        Usage:
-          program <input-path> [--file=PATH] [--truncate=true|false] [--max-depth=INT]
-        
-        Notes:
-          - <input-path> is required and must be the first positional argument.
-          - --file writes a Mermaid diagram to PATH; if omitted, the AST is printed.
-          - --truncate and --max-depth are optional. If omitted, they are treated as null.
-          - If you need max-depth to affect diagram generation, thread it into createMermaidDiagram.
-        """.trimIndent()
-    )
+    val expression = parser.parse()
+    return
 }

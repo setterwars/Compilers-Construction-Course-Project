@@ -10,9 +10,9 @@ enum class ExpressionOperator { AND, OR, XOR }
 
 data class Relation(
     val simple: Simple,
-    val rest: List<Pair<RelationOperator, Simple>>?,
+    val comparison: Pair<RelationOperator, Simple>?,
 )
-enum class RelationOperator { LESS, LE, GREATER, GE, EQ, NEQ }
+enum class RelationOperator { LT, LE, GT, GE, EQ, NEQ }
 
 data class Simple(
     val factor: Factor,
@@ -44,12 +44,17 @@ data class UnaryReal(
     val realLiteral: RealLiteral,
 ) : Primary
 
+data class UnaryModifiablePrimary(
+    val unaryOperator: UnaryOperator?,
+    val modifiablePrimary: ModifiablePrimary,
+) : Primary
+
 enum class BooleanLiteral : Primary { TRUE, FALSE }
 
 data class ModifiablePrimary(
     val variable: Identifier,
     val accessors: List<Accessor>?,
-) : Primary
+)
 
 interface Accessor
 

@@ -104,7 +104,7 @@ Primary
   | [ Sign ] RealLiteral
   | true
   | false 
-  | ModifiablePrimary
+  | [ Sign | not ] ModifiablePrimary
   | RoutineCall 
 
 Sign

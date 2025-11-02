@@ -13,6 +13,7 @@ import com.github.setterwars.compilercourse.parser.nodes.Expression
 import com.github.setterwars.compilercourse.parser.nodes.ExpressionInParenthesis
 import com.github.setterwars.compilercourse.parser.nodes.ExpressionOperator
 import com.github.setterwars.compilercourse.parser.nodes.Factor
+import com.github.setterwars.compilercourse.parser.nodes.FactorOperator
 import com.github.setterwars.compilercourse.parser.nodes.FieldAccessor
 import com.github.setterwars.compilercourse.parser.nodes.ForLoop
 import com.github.setterwars.compilercourse.parser.nodes.FullRoutineBody
@@ -44,6 +45,7 @@ import com.github.setterwars.compilercourse.parser.nodes.Statement
 import com.github.setterwars.compilercourse.parser.nodes.Summand
 import com.github.setterwars.compilercourse.parser.nodes.Type
 import com.github.setterwars.compilercourse.parser.nodes.UnaryInteger
+import com.github.setterwars.compilercourse.parser.nodes.UnaryModifiablePrimary
 import com.github.setterwars.compilercourse.parser.nodes.UnaryNot
 import com.github.setterwars.compilercourse.parser.nodes.UnaryOperator
 import com.github.setterwars.compilercourse.parser.nodes.UnaryReal
@@ -54,16 +56,22 @@ import com.github.setterwars.compilercourse.parser.nodes.VariableDeclaration
 import com.github.setterwars.compilercourse.parser.nodes.VariableDeclarationNoType
 import com.github.setterwars.compilercourse.parser.nodes.VariableDeclarationWithType
 import com.github.setterwars.compilercourse.parser.nodes.WhileLoop
-import java.lang.reflect.Field
-import java.util.Stack
+import kotlin.random.Random
 
 class Parser(private val tokens: List<Token>) {
-    fun parse(): Program? {
-        return null
+    fun parse(): Expression? {
+        return parseExpression(0).getOrNull()?.result // TODO: for test only
     }
 
     private fun getToken(index: Int): Token? {
         return tokens.getOrNull(index)
+    }
+
+    private data class ParseResult<out T>(
+        val nextIndex: Int,
+        val result: T,
+    ) {
+        fun wrapToResult() = Result.success(this)
     }
 
     private class WrongTokenTypeException(
@@ -96,7 +104,7 @@ class Parser(private val tokens: List<Token>) {
                 }
             }
         }
-        return Result.failure(WrongTokenTypeException(token = getToken(index), tokenTypes))
+        return Result.failure(WrongTokenTypeException(token = getToken(currentIndex), tokenTypes))
     }
 
     private data class ParsePart(
@@ -114,29 +122,33 @@ class Parser(private val tokens: List<Token>) {
         parseParts: List<ParsePart>,
         transform: (List<Any>) -> T?,
     ): Result<ParseResult<T>> {
-        val parsePartsStates = MutableList(size = parseParts.size) { 0 }
+        val parsePartsStates = MutableList(size = parseParts.size) { -1 }
         val parsePartsResults = mutableListOf<Pair<Int, ParseResult<Any>>>() // pair (parse part index, result)
         var lastFailure = Result.failure<ParseResult<T>>(Exception())
 
         //  This is basically recursive bruteforce written with stack and while
+        val id = Random.nextInt()
         var parsePartsIndex = 0
         while (true) {
             if (parsePartsIndex == parseParts.size) {
-                transform(parsePartsResults.map { it.second.result })?.let { finalResult ->
-                    return Result.success(
-                        ParseResult(
-                            nextIndex = parsePartsResults.last().second.nextIndex,
-                            result = finalResult,
+                if (parsePartsResults.isNotEmpty()) {
+                    transform(parsePartsResults.map { it.second.result })?.let { finalResult ->
+                        return Result.success(
+                            ParseResult(
+                                nextIndex = parsePartsResults.last().second.nextIndex,
+                                result = finalResult,
+                            )
                         )
-                    )
+                    }
                 }
+                parsePartsIndex--
             }
 
             while (
                 parsePartsIndex >= 0 &&
-                parsePartsStates[parsePartsIndex] == parseParts[parsePartsIndex].alternatingParseFunctions.size
+                parsePartsStates[parsePartsIndex] == parseParts[parsePartsIndex].alternatingParseFunctions.size - 1
             ) {
-                parsePartsStates[parsePartsIndex] = 0
+                parsePartsStates[parsePartsIndex] = -1
                 if (parsePartsResults.lastOrNull()?.first == parsePartsIndex) {
                     parsePartsResults.removeLast()
                 }
@@ -159,7 +171,11 @@ class Parser(private val tokens: List<Token>) {
                 parsePartsResults.add(parsePartsIndex to parseResult)
                 parsePartsIndex++
             }.onFailure {
-                lastFailure = Result.failure(it)
+                if (parseParts[parsePartsIndex].optional) {
+                    parsePartsIndex++
+                } else {
+                    lastFailure = Result.failure(it)
+                }
             }
         }
         return lastFailure
@@ -167,7 +183,7 @@ class Parser(private val tokens: List<Token>) {
 
     private fun takeToken(index: Int, tokenType: TokenType): Result<Int> {
         val startIndex = skipNewLines(index)
-        val token = getToken(index)
+        val token = getToken(startIndex)
         if (token?.tokenType == tokenType) {
             return Result.success(startIndex + 1)
         }
@@ -240,7 +256,17 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun parseUnaryOperator(index: Int): Result<ParseResult<UnaryOperator>> {
-        return parseUnarySign(index).onFailure { parseUnaryNot(index) }
+        return combineParseFunctions(
+            index = index,
+            parseParts = listOf(
+                ParsePart(
+                    listOf(::parseUnaryNot, ::parseUnarySign),
+                    false
+                )
+            )
+        ) { nodes ->
+            match<UnaryOperator, UnaryOperator>(nodes) { it }
+        }
     }
 
     private fun parseUnaryRealOperator(index: Int): Result<ParseResult<UnaryRealOperator>> {
@@ -279,8 +305,8 @@ class Parser(private val tokens: List<Token>) {
         return combineParseFunctions(
             index,
             listOf(
-                ParsePart(listOf(::parseUnaryOperator), true),
-                ParsePart(listOf(::parseIntegerLiteral), false)
+                ParsePart(::parseUnaryOperator, true),
+                ParsePart(::parseIntegerLiteral, false)
             )
         ) { nodes ->
             match<UnaryInteger, IntegerLiteral>(nodes) { UnaryInteger(null, it) }
@@ -298,7 +324,7 @@ class Parser(private val tokens: List<Token>) {
             index,
             listOf(
                 ParsePart(listOf(::parseUnaryRealOperator), true),
-                ParsePart(listOf(::parseIntegerLiteral), false)
+                ParsePart(listOf(::parseRealLiteral), false)
             )
         ) { nodes ->
             match<UnaryReal, RealLiteral>(nodes) { UnaryReal(null, it) }
@@ -329,7 +355,7 @@ class Parser(private val tokens: List<Token>) {
                         ::parseUnaryInteger,
                         ::parseUnaryReal,
                         ::parseBooleanLiteral,
-                        ::parseModifiablePrimary,
+                        ::parseUnaryModifiablePrimary,
                         ::parseRoutineCall
                     ), false
                 )
@@ -340,15 +366,61 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun parseExpressionOperator(index: Int): Result<ParseResult<ExpressionOperator>> {
-        TODO()
+        return parseAnyTokenOf(
+            index,
+            listOf(TokenType.AND, TokenType.OR, TokenType.XOR),
+        ) { token ->
+            when (token.tokenType) {
+                TokenType.AND -> ExpressionOperator.AND
+                TokenType.OR -> ExpressionOperator.OR
+                TokenType.XOR -> ExpressionOperator.XOR
+                else -> null
+            }
+        }
     }
 
     private fun parseRelationOperator(index: Int): Result<ParseResult<RelationOperator>> {
-        TODO()
+        return parseAnyTokenOf(
+            index,
+            listOf(TokenType.LT, TokenType.LE, TokenType.GT, TokenType.GE, TokenType.EQ, TokenType.NE),
+        ) { token ->
+            when (token.tokenType) {
+                TokenType.LT -> RelationOperator.LT
+                TokenType.LE -> RelationOperator.LE
+                TokenType.GT -> RelationOperator.GT
+                TokenType.GE -> RelationOperator.GE
+                TokenType.EQ -> RelationOperator.EQ
+                TokenType.NE -> RelationOperator.NEQ
+                else -> null
+            }
+        }
     }
 
     private fun parseSimpleOperator(index: Int): Result<ParseResult<SimpleOperator>> {
-        TODO()
+        return parseAnyTokenOf(
+            index,
+            listOf(TokenType.PLUS, TokenType.MINUS),
+        ) { token ->
+            when (token.tokenType) {
+                TokenType.PLUS -> SimpleOperator.PLUS
+                TokenType.MINUS -> SimpleOperator.MINUS
+                else -> null
+            }
+        }
+    }
+
+    private fun parseFactorOperator(index: Int): Result<ParseResult<FactorOperator>> {
+        return parseAnyTokenOf(
+            index,
+            listOf(TokenType.STAR, TokenType.SLASH, TokenType.PERCENT),
+        ) { token ->
+            when (token.tokenType) {
+                TokenType.STAR -> FactorOperator.PRODUCT
+                TokenType.SLASH -> FactorOperator.DIVISION
+                TokenType.PERCENT -> FactorOperator.MODULO
+                else -> null
+            }
+        }
     }
 
     private fun parseExpression(index: Int): Result<ParseResult<Expression>> {
@@ -380,29 +452,25 @@ class Parser(private val tokens: List<Token>) {
 
     private fun parseRelation(index: Int): Result<ParseResult<Relation>> {
         val simpleParseResult = parseSimple(index).getOrElse { return Result.failure(it) }
-        val tailSimples = parseZeroOrMoreTimes(
+        val comparisonParseResult = combineParseFunctions(
             index = simpleParseResult.nextIndex,
-            parseFunction = { i ->
-                combineParseFunctions(
-                    index = i,
-                    parseParts = listOf(
-                        ParsePart(::parseRelationOperator),
-                        ParsePart(::parseSimple)
-                    )
-                ) { nodes ->
-                    match<Pair<RelationOperator, Simple>, RelationOperator, Simple>(nodes) { relationOperator, simple ->
-                        relationOperator to simple
-                    }
-                }
+            parseParts = listOf(
+                ParsePart(::parseRelationOperator),
+                ParsePart(::parseSimple)
+            )
+        ) { nodes ->
+            match<Pair<RelationOperator, Simple>, RelationOperator, Simple>(nodes) { relationOperator, simple ->
+                relationOperator to simple
             }
-        )
+        }
         return ParseResult(
-            nextIndex = tailSimples.lastOrNull()?.nextIndex ?: simpleParseResult.nextIndex,
+            nextIndex = comparisonParseResult.getOrNull()?.nextIndex ?: simpleParseResult.nextIndex,
             result = Relation(
                 simple = simpleParseResult.result,
-                rest = tailSimples.map { it.result.first to it.result.second }
+                comparison = comparisonParseResult.getOrNull()?.result
             )
         ).wrapToResult()
+
     }
 
     private fun parseSimple(index: Int): Result<ParseResult<Simple>> {
@@ -433,66 +501,93 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun parseFactor(index: Int): Result<ParseResult<Factor>> {
-        val factorParseResult = parseFactor(index).getOrElse { return Result.failure(it) }
-        val tailFactors = parseZeroOrMoreTimes(
-            index = factorParseResult.nextIndex,
+        val summandParseResult = parseSummand(index).getOrElse { return Result.failure(it) }
+        val tailSummands = parseZeroOrMoreTimes(
+            index = summandParseResult.nextIndex,
             parseFunction = { i ->
                 combineParseFunctions(
                     index = i,
                     parseParts = listOf(
-                        ParsePart(::parseSimpleOperator),
-                        ParsePart(::parseFactor)
+                        ParsePart(::parseFactorOperator),
+                        ParsePart(::parseSummand)
                     )
                 ) { nodes ->
-                    match<Pair<SimpleOperator, Factor>, SimpleOperator, Factor>(nodes) { simpleOperator, factor ->
-                        simpleOperator to factor
+                    match<Pair<FactorOperator, Summand>, FactorOperator, Summand>(nodes) { factorOperator, summand ->
+                        factorOperator to summand
                     }
                 }
             }
         )
         return ParseResult(
-            nextIndex = tailFactors.lastOrNull()?.nextIndex ?: factorParseResult.nextIndex,
-            result = Simple(
-                factor = factorParseResult.result,
-                rest = tailFactors.map { it.result.first to it.result.second }
+            nextIndex = tailSummands.lastOrNull()?.nextIndex ?: summandParseResult.nextIndex,
+            result = Factor(
+                summand = summandParseResult.result,
+                rest = tailSummands.map { it.result.first to it.result.second }
             )
         ).wrapToResult()
     }
 
     private fun parseSummand(index: Int): Result<ParseResult<Summand>> {
-        TODO()
+        return combineParseFunctions(
+            index,
+            listOf(
+                ParsePart(listOf(::parsePrimary, ::parseExpressionInParenthesis)),
+            )
+        ) { nodes ->
+            match<Summand, Summand>(nodes) { it }
+        }
     }
 
     private fun parseExpressionInParenthesis(index: Int): Result<ParseResult<ExpressionInParenthesis>> {
-        TODO()
+        var nextIndex = takeToken(index, TokenType.LPAREN).getOrElse { return Result.failure(it) }
+        val expressionParseResult = parseExpression(nextIndex).getOrElse { return Result.failure(it) }
+        nextIndex = takeToken(expressionParseResult.nextIndex, TokenType.RPAREN).getOrElse { return Result.failure(it) }
+        return ParseResult(
+            nextIndex = nextIndex,
+            result = ExpressionInParenthesis(expressionParseResult.result)
+        ).wrapToResult()
+    }
+
+    private fun parseUnaryModifiablePrimary(index: Int): Result<ParseResult<UnaryModifiablePrimary>> {
+        return combineParseFunctions(
+            index,
+            listOf(
+                ParsePart(::parseUnaryOperator, true),
+                ParsePart(::parseModifiablePrimary, false)
+            )
+        ) { nodes ->
+            match<UnaryModifiablePrimary, ModifiablePrimary>(nodes) {
+                UnaryModifiablePrimary(null, it)
+            } ?:
+            match<UnaryModifiablePrimary, UnaryOperator, ModifiablePrimary>(nodes) {
+                unaryOperator, modifiablePrimary ->
+                UnaryModifiablePrimary(unaryOperator, modifiablePrimary)
+            }
+        }
     }
 
     private fun parseModifiablePrimary(index: Int): Result<ParseResult<ModifiablePrimary>> {
         val identifierParseResult = parseIdentifier(index).getOrElse { return Result.failure(it) }
-        var currentIndex = identifierParseResult.nextIndex
-        val accessors = mutableListOf<Accessor>()
-        while (true) {
-            val tailParseResult = combineParseFunctions(
-                currentIndex,
-                listOf(
-                    ParsePart(listOf(::parseFieldAccessor, ::parseArrayAccessor), true)
-                )
-            ) { nodes ->
-                match<Accessor, ArrayAccessor>(nodes) { it } ?: match<Accessor, FieldAccessor>(nodes) { it }
+        val accessors = parseZeroOrMoreTimes(
+            identifierParseResult.nextIndex,
+            parseFunction = { i ->
+                combineParseFunctions(
+                    index = i,
+                    parseParts = listOf(
+                        ParsePart(listOf(::parseFieldAccessor, ::parseArrayAccessor), false)
+                    )
+                ) { nodes ->
+                    match<Accessor, Accessor>(nodes) { it }
+                }
             }
-            tailParseResult.onFailure {
-                break
-            }.onSuccess { (nextIndex, accessor) ->
-                currentIndex = nextIndex
-                accessors.add(accessor)
-            }
-        }
-        return Result.success(
-            ParseResult(
-                nextIndex = currentIndex,
-                result = ModifiablePrimary(variable = identifierParseResult.result, accessors = accessors)
-            )
         )
+        return ParseResult(
+            nextIndex = accessors.lastOrNull()?.nextIndex ?: identifierParseResult.nextIndex,
+            result = ModifiablePrimary(
+                variable = identifierParseResult.result,
+                accessors = accessors.map { it.result }
+            )
+        ).wrapToResult()
     }
 
     private fun parseFieldAccessor(index: Int): Result<ParseResult<FieldAccessor>> {
@@ -509,7 +604,7 @@ class Parser(private val tokens: List<Token>) {
     private fun parseArrayAccessor(index: Int): Result<ParseResult<ArrayAccessor>> {
         var nextIndex = takeToken(index, TokenType.LBRACKET).getOrElse { return Result.failure(it) }
         val expressionParseResult = parseExpression(nextIndex).getOrElse { return Result.failure(it) }
-        nextIndex = takeToken(index, TokenType.RBRACKET).getOrElse { return Result.failure(it) }
+        nextIndex = takeToken(expressionParseResult.nextIndex, TokenType.RBRACKET).getOrElse { return Result.failure(it) }
         return Result.success(
             ParseResult(
                 nextIndex = nextIndex,
@@ -580,7 +675,7 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun parseRoutineCall(index: Int): Result<ParseResult<RoutineCall>> {
-        TODO()
+        return Result.failure(NotImplementedError())
     }
 
     private fun parseRoutineCallArgument(index: Int): Result<ParseResult<RoutineCallArgument>> {
@@ -629,12 +724,5 @@ class Parser(private val tokens: List<Token>) {
 
     private fun parseRecordType(index: Int): Result<ParseResult<RecordType>> {
         TODO()
-    }
-
-    private data class ParseResult<out T>(
-        val nextIndex: Int,
-        val result: T,
-    ) {
-        fun wrapToResult() = Result.success(this)
     }
 }
