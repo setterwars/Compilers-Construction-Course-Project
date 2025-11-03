@@ -8,7 +8,8 @@ import kotlin.random.Random
 class Parser(internal val tokens: List<Token>) {
     fun parse(): Program {
         val parseResult = parseProgram(0).getOrThrow()
-        if (tokens.getOrNull(parseResult.nextIndex)?.tokenType == TokenType.EOF) {
+        val indexAfterStop = tokens.getOrNull(skipNewLines(parseResult.nextIndex))?.tokenType
+        if (indexAfterStop == TokenType.EOF) {
             return parseResult.result
         } else {
             throw WrongTokenTypeException(token = tokens.getOrNull(parseResult.nextIndex), TokenType.EOF)
