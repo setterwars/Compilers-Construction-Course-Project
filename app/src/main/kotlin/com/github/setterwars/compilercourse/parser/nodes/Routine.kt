@@ -15,11 +15,11 @@ sealed interface RoutineBody
 
 data class FullRoutineBody(
     val body: Body,
-)
+) : RoutineBody
 
 data class SingleExpressionBody(
     val expression: Expression,
-)
+): RoutineBody
 
 data class Parameters(
     val parameters: List<ParameterDeclaration>,

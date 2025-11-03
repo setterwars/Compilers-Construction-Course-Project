@@ -2,29 +2,13 @@ package com.github.setterwars.compilercourse.parser
 
 import com.github.setterwars.compilercourse.lexer.Token
 import com.github.setterwars.compilercourse.lexer.TokenType
-import com.github.setterwars.compilercourse.parser.nodes.FullRoutineBody
-import com.github.setterwars.compilercourse.parser.nodes.ParameterDeclaration
-import com.github.setterwars.compilercourse.parser.nodes.Parameters
 import com.github.setterwars.compilercourse.parser.nodes.Program
-import com.github.setterwars.compilercourse.parser.nodes.RoutineBody
-import com.github.setterwars.compilercourse.parser.nodes.RoutineDeclaration
-import com.github.setterwars.compilercourse.parser.nodes.RoutineHeader
-import com.github.setterwars.compilercourse.parser.nodes.SingleExpressionBody
 import com.github.setterwars.compilercourse.parser.nodes.Statement
 import kotlin.random.Random
 
 class Parser(internal val tokens: List<Token>) {
     fun parse(): Program? {
         return parseProgram(0).getOrNull()?.result
-    }
-
-    fun parseStatements(): List<Statement> { // TODO: remove it!!!
-        return parseZeroOrMoreTimes(
-            index = 0,
-            parseFunction = { i ->
-                parseStatement(i)
-            }
-        ).map { it.result }
     }
 
     internal fun getToken(index: Int): Token? {
