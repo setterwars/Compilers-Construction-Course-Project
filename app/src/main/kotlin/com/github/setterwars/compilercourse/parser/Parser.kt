@@ -2,29 +2,29 @@ package com.github.setterwars.compilercourse.parser
 
 import com.github.setterwars.compilercourse.lexer.Token
 import com.github.setterwars.compilercourse.lexer.TokenType
-import com.github.setterwars.compilercourse.parser.nodes.Assignment
-import com.github.setterwars.compilercourse.parser.nodes.Expression
-import com.github.setterwars.compilercourse.parser.nodes.ForLoop
 import com.github.setterwars.compilercourse.parser.nodes.FullRoutineBody
-import com.github.setterwars.compilercourse.parser.nodes.IfStatement
 import com.github.setterwars.compilercourse.parser.nodes.ParameterDeclaration
 import com.github.setterwars.compilercourse.parser.nodes.Parameters
-import com.github.setterwars.compilercourse.parser.nodes.PrintStatement
 import com.github.setterwars.compilercourse.parser.nodes.Program
-import com.github.setterwars.compilercourse.parser.nodes.Range
 import com.github.setterwars.compilercourse.parser.nodes.RoutineBody
-import com.github.setterwars.compilercourse.parser.nodes.RoutineCall
-import com.github.setterwars.compilercourse.parser.nodes.RoutineCallArgument
 import com.github.setterwars.compilercourse.parser.nodes.RoutineDeclaration
 import com.github.setterwars.compilercourse.parser.nodes.RoutineHeader
 import com.github.setterwars.compilercourse.parser.nodes.SingleExpressionBody
 import com.github.setterwars.compilercourse.parser.nodes.Statement
-import com.github.setterwars.compilercourse.parser.nodes.WhileLoop
 import kotlin.random.Random
 
 class Parser(internal val tokens: List<Token>) {
     fun parse(): Program? {
         return parseProgram(0).getOrNull()?.result
+    }
+
+    fun parseStatements(): List<Statement> { // TODO: remove it!!!
+        return parseZeroOrMoreTimes(
+            index = 0,
+            parseFunction = { i ->
+                parseStatement(i)
+            }
+        ).map { it.result }
     }
 
     internal fun getToken(index: Int): Token? {
@@ -232,40 +232,5 @@ class Parser(internal val tokens: List<Token>) {
         TODO()
     }
 
-    internal fun parseStatement(index: Int): Result<ParseResult<Statement>> {
-        TODO()
-    }
-
-    internal fun parseAssignment(index: Int): Result<ParseResult<Assignment>> {
-        TODO()
-    }
-
-    internal fun parseRoutineCall(index: Int): Result<ParseResult<RoutineCall>> {
-        return Result.failure(NotImplementedError())
-    }
-
-    internal fun parseRoutineCallArgument(index: Int): Result<ParseResult<RoutineCallArgument>> {
-        TODO()
-    }
-
-    internal fun parseWhileLoop(index: Int): Result<ParseResult<WhileLoop>> {
-        TODO()
-    }
-
-    internal fun parseForLoop(index: Int): Result<ParseResult<ForLoop>> {
-        TODO()
-    }
-
-    internal fun parseRange(index: Int): Result<ParseResult<Range>> {
-        TODO()
-    }
-
-    internal fun parseIfStatement(index: Int): Result<ParseResult<IfStatement>> {
-        TODO()
-    }
-
-    internal fun parsePrintStatement(index: Int): Result<ParseResult<PrintStatement>> {
-        TODO()
-    }
 
 }

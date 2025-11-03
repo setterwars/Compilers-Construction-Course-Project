@@ -1,6 +1,6 @@
 package com.github.setterwars.compilercourse.parser.nodes
 
-sealed interface Statement : Body
+sealed interface Statement : BodyElement
 
 data class Assignment(
     val modifiablePrimary: ModifiablePrimary,
@@ -9,7 +9,7 @@ data class Assignment(
 
 data class RoutineCall(
     val routineName: Identifier,
-    val arguments: RoutineCallArgument,
+    val arguments: List<RoutineCallArgument>,
 ) : Statement
 
 data class RoutineCallArgument(
@@ -30,7 +30,7 @@ data class ForLoop(
 
 data class Range(
     val begin: Expression,
-    val end: Expression,
+    val end: Expression?,
 )
 
 data class IfStatement(
@@ -41,5 +41,5 @@ data class IfStatement(
 
 data class PrintStatement(
     val expression: Expression,
-    val rest: List<Expression>?,
+    val rest: List<Expression>,
 ) : Statement

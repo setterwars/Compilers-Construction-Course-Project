@@ -6,7 +6,7 @@ data class Program(
 
 sealed interface Declaration
 
-sealed interface SimpleDeclaration : Declaration
+sealed interface SimpleDeclaration : Declaration, BodyElement
 
 sealed interface VariableDeclaration : SimpleDeclaration
 

@@ -1,3 +1,7 @@
 package com.github.setterwars.compilercourse.parser.nodes
 
-sealed interface Body
+data class Body(
+    val bodyElements: List<BodyElement>
+)
+
+sealed interface BodyElement

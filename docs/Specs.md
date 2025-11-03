@@ -45,7 +45,7 @@ Assignment
   : ModifiablePrimary := Expression
 
 RoutineCall
-  : Identifier [ ( Expression { , Expression } ) ]
+  : Identifier ( [ Expression { , Expression } ] )
 
 WhileLoop
   : while Expression loop Body end
