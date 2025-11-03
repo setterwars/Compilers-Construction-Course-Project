@@ -30,7 +30,7 @@ internal fun Parser.parseRoutineHeader(index: Int): Result<ParseResult<RoutineHe
         return Result.failure(it)
     }
     val identifierParseResult = parseIdentifier(nextIndex).getOrElse { return Result.failure(it) }
-    nextIndex = takeToken(identifierParseResult.nextIndex, TokenType.LBRACKET).getOrElse {
+    nextIndex = takeToken(identifierParseResult.nextIndex, TokenType.LPAREN).getOrElse {
         return Result.failure(it)
     }
     val parametersParseResult = parseParameters(nextIndex)
@@ -70,11 +70,17 @@ internal fun Parser.parseRoutineBody(index: Int): Result<ParseResult<RoutineBody
 }
 
 internal fun Parser.parseFullRoutineBody(index: Int): Result<ParseResult<FullRoutineBody>> {
-    val bodyParseResult = parseBody(index).getOrElse {
+    var nextIndex = takeToken(index, TokenType.IS).getOrElse {
+        return Result.failure(it)
+    }
+    val bodyParseResult = parseBody(nextIndex).getOrElse {
+        return Result.failure(it)
+    }
+    nextIndex = takeToken(bodyParseResult.nextIndex, TokenType.END).getOrElse {
         return Result.failure(it)
     }
     return ParseResult(
-        nextIndex = bodyParseResult.nextIndex,
+        nextIndex = nextIndex,
         result = FullRoutineBody(bodyParseResult.result),
     ).wrapToResult()
 }

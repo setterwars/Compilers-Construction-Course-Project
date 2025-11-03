@@ -3,12 +3,16 @@ package com.github.setterwars.compilercourse.parser
 import com.github.setterwars.compilercourse.lexer.Token
 import com.github.setterwars.compilercourse.lexer.TokenType
 import com.github.setterwars.compilercourse.parser.nodes.Program
-import com.github.setterwars.compilercourse.parser.nodes.Statement
 import kotlin.random.Random
 
 class Parser(internal val tokens: List<Token>) {
-    fun parse(): Program? {
-        return parseProgram(0).getOrNull()?.result
+    fun parse(): Program {
+        val parseResult = parseProgram(0).getOrThrow()
+        if (tokens.getOrNull(parseResult.nextIndex)?.tokenType == TokenType.EOF) {
+            return parseResult.result
+        } else {
+            throw WrongTokenTypeException(token = tokens.getOrNull(parseResult.nextIndex), TokenType.EOF)
+        }
     }
 
     internal fun getToken(index: Int): Token? {

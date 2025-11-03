@@ -1,0 +1,58 @@
+var width: integer is 4
+var height: integer is 3
+
+type Pixel is record
+  var r: integer
+  var g: integer
+  var b: integer
+end
+
+type Image is array[width * height] Pixel
+var buffer: Image
+var globalCount: integer
+
+routine clear(img: Image) is
+  i := 0
+  while i < width * height loop
+    img[i].r := 0
+    img[i].g := 0
+    img[i].b := 0
+    i := i + 1
+  end
+end
+
+routine fillGradient(img: Image) is
+  i := 0
+  while i < width * height loop
+    img[i].r := i
+    img[i].g := i * 2
+    img[i].b := img[i].r + img[i].g
+    i := i + 1
+  end
+  print img[0].r, img[0].g, img[0].b
+end
+
+routine sumChannel(img: Image, ch: integer): integer is
+  s := 0
+  i := 0
+  while i < width * height loop
+    if ch = 0 then
+      s := s + img[i].r
+    else
+      if ch = 1 then
+        s := s + img[i].g
+      else
+        s := s + img[i].b
+      end
+    end
+    i := i + 1
+  end
+  print s
+end
+
+routine pipeline() is
+  clear(buffer)
+  fillGradient(buffer)
+  globalCount := sumChannel(buffer, 0)
+  print globalCount
+end
