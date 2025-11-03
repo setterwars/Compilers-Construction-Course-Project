@@ -10,7 +10,7 @@ data class Assignment(
 data class RoutineCall(
     val routineName: Identifier,
     val arguments: List<RoutineCallArgument>,
-) : Statement
+) : Statement, Primary
 
 data class RoutineCallArgument(
     val expression: Expression,

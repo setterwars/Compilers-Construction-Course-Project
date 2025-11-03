@@ -147,11 +147,11 @@ internal fun Parser.parsePrimary(index: Int): Result<ParseResult<Primary>> {
         parseParts = listOf(
             ParsePart(
                 listOf(
+                    ::parseRoutineCall,
                     ::parseUnaryInteger,
                     ::parseUnaryReal,
                     ::parseBooleanLiteral,
                     ::parseUnaryModifiablePrimary,
-                    ::parseRoutineCall
                 ), false
             )
         )

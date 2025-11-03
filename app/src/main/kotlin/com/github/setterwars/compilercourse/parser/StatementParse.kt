@@ -22,7 +22,6 @@ internal fun Parser.parseStatement(index: Int): Result<ParseResult<Statement>> {
                     ::parseRoutineCall,
                     ::parseWhileLoop,
                     ::parseForLoop,
-                    ::parseRange,
                     ::parseIfStatement,
                     ::parsePrintStatement,
                 ),
@@ -145,7 +144,7 @@ internal fun Parser.parseForLoop(index: Int): Result<ParseResult<ForLoop>> {
             else -> null
         }
     }
-    nextIndex = reverseParseResult.getOrNull()?.nextIndex ?: nextIndex
+    nextIndex = reverseParseResult.getOrNull()?.nextIndex ?: rangeParseResult.nextIndex
     nextIndex = takeToken(nextIndex, TokenType.LOOP).getOrElse {
         return Result.failure(it)
     }
@@ -191,7 +190,7 @@ internal fun Parser.parseIfStatement(index: Int): Result<ParseResult<IfStatement
     val expressionParseResult = parseExpression(nextIndex).getOrElse {
         return Result.failure(it)
     }
-    nextIndex = takeToken(nextIndex, TokenType.THEN).getOrElse {
+    nextIndex = takeToken(expressionParseResult.nextIndex, TokenType.THEN).getOrElse {
         return Result.failure(it)
     }
     val bodyParseResult = parseBody(nextIndex).getOrElse {
@@ -200,7 +199,7 @@ internal fun Parser.parseIfStatement(index: Int): Result<ParseResult<IfStatement
     val elseParseResult = takeToken(bodyParseResult.nextIndex, TokenType.ELSE).getOrNull()?.let { i ->
         parseBody(i)
     }
-    nextIndex = elseParseResult?.getOrNull()?.nextIndex ?: nextIndex
+    nextIndex = elseParseResult?.getOrNull()?.nextIndex ?: bodyParseResult.nextIndex
     nextIndex = takeToken(nextIndex, TokenType.END).getOrElse {
         return Result.failure(it)
     }
@@ -218,7 +217,7 @@ internal fun Parser.parsePrintStatement(index: Int): Result<ParseResult<PrintSta
     var nextIndex = takeToken(index, TokenType.PRINT).getOrElse {
         return Result.failure(it)
     }
-    val firstExpressionParseResult = parseExpression(nextIndex).getOrElse() {
+    val firstExpressionParseResult = parseExpression(nextIndex).getOrElse {
         return Result.failure(it)
     }
     val restExpressionsParseResult = parseZeroOrMoreTimes(
@@ -237,7 +236,7 @@ internal fun Parser.parsePrintStatement(index: Int): Result<ParseResult<PrintSta
         }
     )
     return ParseResult(
-        nextIndex = nextIndex,
+        nextIndex = restExpressionsParseResult.lastOrNull()?.nextIndex ?: firstExpressionParseResult.nextIndex,
         result = PrintStatement(
             expression = firstExpressionParseResult.result,
             rest = restExpressionsParseResult.map { it.result },

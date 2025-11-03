@@ -1,0 +1,129 @@
+routine t01() is
+  x := 1 + 2 * 3
+  arr[0] := x - 1
+  p.a := arr[0] + 4
+  arr[p.a] := arr[0] * (x - 2)
+  mat[1][2] := -5
+  v.pos.x := mat[0][0]
+end
+
+routine t02() is
+  mix(alpha(1), beta(2, 3), 4)
+  log(sum(1, 2*3), true)
+  tick()
+  emit(1, 2, 3)
+end
+
+routine t03() is
+  i := 0
+  sum := 0
+  while i < 5 and i /= -1 loop
+    sum := sum + i * i
+    i := i + 1
+    pulse()
+  end
+end
+
+routine t04() is
+  for i in n loop
+    acc := acc + i
+  end
+  n := 3
+  acc := 0
+  for j in 1 .. 5 reverse loop
+    acc := acc + j * 2
+  end
+end
+
+routine t05() is
+  if z > 5 then
+    z := z - 1
+  end
+  if (z - 1) = 8 then
+    z := z + 1
+  else
+    z := 0
+  end
+  z := 10
+end
+
+routine t06() is
+  print p.x, p.y, arr[0] + arr[1] + arr[2], (1 + 2) * 3, true xor false, foo(1,2)
+  p.x := 7
+  p.y := 8
+  arr[0] := 1
+  arr[1] := 2
+  arr[2] := 3
+  print p.x
+end
+
+routine t07() is
+  total := 0
+  while total < 10 loop
+    total := total + 2
+    if total >= 6 then
+      flag := true
+      print total, flag
+    else
+      print total
+    end
+  end
+end
+
+routine t08() is
+  a := 3
+  b := 4
+  if a * b >= 12 then
+    print a, b
+  end
+  if (a + b) /= 0 then
+    a := a + b
+  else
+    a := 0
+  end
+end
+
+routine t09() is
+  img[i].r := i
+  img[i].g := i * 2
+  img[i].b := img[i].r + img[i].g
+  if img[0].r < 10 and false then
+    print img[0].r, img[0].g, img[0].b
+  end
+end
+
+routine t10() is
+  s := 0
+  n := 4
+  if n > 0 then
+    s := 1
+  end
+  for k in 1 .. n loop
+    s := s + k
+    step(k)
+  end
+  while s < 20 loop
+    s := s + 3
+    tick()
+    if s >= 15 then
+      print s, probe(s)
+    end
+  end
+  print s, finalize(s)
+end
+
+routine t11() is
+  if a >= 1 then
+    if b >= 2 then
+      if c >= 3 then
+        print a, b, c
+      else
+        c := 3
+      end
+    else
+      b := 2
+    end
+  else
+    a := 1
+  end
+end

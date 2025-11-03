@@ -203,34 +203,4 @@ class Parser(internal val tokens: List<Token>) {
         }
         return currentIndex
     }
-
-    internal fun parseRoutineDeclaration(index: Int): Result<ParseResult<RoutineDeclaration>> {
-        return Result.failure(Exception())
-    }
-
-    internal fun parseRoutineHeader(index: Int): Result<ParseResult<RoutineHeader>> {
-        TODO()
-    }
-
-    internal fun parseRoutineBody(index: Int): Result<ParseResult<RoutineBody>> {
-        TODO()
-    }
-
-    internal fun parseFullRoutineBody(index: Int): Result<ParseResult<FullRoutineBody>> {
-        TODO()
-    }
-
-    internal fun parseSingleExpressionBody(index: Int): Result<ParseResult<SingleExpressionBody>> {
-        TODO()
-    }
-
-    internal fun parseParameters(index: Int): Result<ParseResult<Parameters>> {
-        TODO()
-    }
-
-    internal fun parseParameterDeclaration(index: Int): Result<ParseResult<ParameterDeclaration>> {
-        TODO()
-    }
-
-
 }
