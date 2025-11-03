@@ -45,7 +45,7 @@ Assignment
   : ModifiablePrimary := Expression
 
 RoutineCall
-  : Identifier [ ( Expression { , Expression } ) ]
+  : Identifier ( [ Expression { , Expression } ] )
 
 WhileLoop
   : while Expression loop Body end
@@ -104,7 +104,7 @@ Primary
   | [ Sign ] RealLiteral
   | true
   | false 
-  | ModifiablePrimary
+  | [ Sign | not ] ModifiablePrimary
   | RoutineCall 
 
 Sign

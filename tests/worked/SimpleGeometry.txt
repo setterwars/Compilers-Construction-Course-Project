@@ -1,0 +1,30 @@
+type Point is record
+  var x: real
+  var y: real
+end
+type Segment is record
+  var a: Point
+  var b: Point
+end
+
+var origin: Point
+
+routine makePoint(x: real, y: real): Point is
+  origin.x := 0.0
+  origin.y := 0.0
+  print origin.x, origin.y
+end
+
+routine length2(p: Point): real => (p.x * p.x) + (p.y * p.y)
+
+routine midpoint(s: Segment): Point is
+
+end
+
+routine translate(p: Point, dx: real, dy: real): Point is
+  print p.x + dx, p.y + dy
+end
+
+routine mainGeom() is
+  print origin.x, origin.y
+end
