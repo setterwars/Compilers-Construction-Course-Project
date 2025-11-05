@@ -10,13 +10,12 @@ import java.io.FileReader
 
 fun main(args: Array<String>) {
     if (args.isEmpty()) {
-        println("Usage: run <source-file> [--semantic] [--strict]")
+        println("Usage: run <source-file> [--semantic]")
         return
     }
     val sourcePath = args[0]
     val flags = args.drop(1).toSet()
-    val enableSemantic = flags.contains("--semantic") || flags.contains("--strict")
-    val strictMode = flags.contains("--strict")
+    val enableSemantic = flags.contains("--semantic")
 
     val file = File(sourcePath)
     val lexer = Lexer(FileReader(file))
@@ -31,7 +30,7 @@ fun main(args: Array<String>) {
     println("OK! Found ${program.declarations.size} declarations in $sourcePath program")
 
     if (enableSemantic) {
-        val analyzer = if (strictMode) SemanticAnalyzer(SemanticAnalyzer.Mode.Strict) else SemanticAnalyzer()
+        val analyzer = SemanticAnalyzer()
         val result = analyzer.analyze(program)
         if (result.errors.isEmpty()) {
             println("Semantic analysis passed: No errors found")
