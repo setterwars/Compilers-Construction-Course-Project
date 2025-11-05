@@ -4,7 +4,7 @@ import com.github.setterwars.compilercourse.parser.nodes.*
 
 class SemanticAnalyzer {
 
-    private val info = SemanticInfoStore()
+    val info = SemanticInfoStore()
     private val errors = mutableListOf<SemanticError>()
 
     private val globalScope = SymbolTable(null)
@@ -94,7 +94,10 @@ class SemanticAnalyzer {
             is VariableDeclarationWithType -> {
                 val name = vd.identifier.token.lexeme
                 if (currentScope.isDeclaredInCurrentScope(name)) {
-                    semanticError("Variable '$name' already declared in this scope", vd.identifier.token.span.line); return
+                    semanticError(
+                        "Variable '$name' already declared in this scope",
+                        vd.identifier.token.span.line
+                    ); return
                 }
                 val declared = analyzeType(vd.type, inParamPos = false)
                 vd.initialValue?.let { iv ->
@@ -109,7 +112,10 @@ class SemanticAnalyzer {
             is VariableDeclarationNoType -> {
                 val name = vd.identifier.token.lexeme
                 if (currentScope.isDeclaredInCurrentScope(name)) {
-                    semanticError("Variable '$name' already declared in this scope", vd.identifier.token.span.line); return
+                    semanticError(
+                        "Variable '$name' already declared in this scope",
+                        vd.identifier.token.span.line
+                    ); return
                 }
                 val (t, _) = analyzeExpression(vd.initialValue)
                 currentScope.addDeclaredVariable(name, t)
@@ -185,24 +191,24 @@ class SemanticAnalyzer {
         // loop var is integer
         currentScope.addDeclaredVariable(f.loopVariable.token.lexeme, ResolvedType.Integer)
 
-        // strict integer bounds
-        val (bt, bc) = analyzeExpression(f.range.begin)
-        if (bt != ResolvedType.Integer) {
-            semanticError("For-loop begin bound must be integer", f.loopVariable.token.span.line)
-        }
-        f.range.end?.let { e ->
-            val (et, _) = analyzeExpression(e)
-            if (et != ResolvedType.Integer) {
-                semanticError("For-loop end bound must be integer", f.loopVariable.token.span.line)
-            }
-        }
-
+        analyzeRange(f.range)
         analyzeBody(f.body)
         currentScope = saved
     }
 
     private fun analyzeIfStatement(i: IfStatement) {
         analyzeExpression(i.condition)
+        val conditionExpressionNodeInfo = info.get<ExpressionSemanticInfo>(i.condition)
+        if (conditionExpressionNodeInfo.type !is ResolvedType.Boolean) {
+            semanticError("Condition expression must be boolean type but it is ${conditionExpressionNodeInfo.type} in $i")
+        }
+        if (conditionExpressionNodeInfo.const != null) {
+            info.setSemanticInfo(
+                i,
+                IfStatementSemanticInfo(compiledCondition = toBool(conditionExpressionNodeInfo.const))
+            )
+        }
+
         var saved = currentScope; currentScope = SymbolTable(saved)
         analyzeBody(i.thenBody)
         currentScope = saved
@@ -448,6 +454,7 @@ class SemanticAnalyzer {
                 }
                 prev.elementType
             }
+
             is ResolvedType.UnsizedArray -> prev.elementType
             else -> {
                 semanticError(
@@ -523,9 +530,17 @@ class SemanticAnalyzer {
     }
 
     private fun analyzeRange(r: Range) {
-        // Not used standalone; bounds are analyzed in analyzeForLoop (strict integer)
-        analyzeExpression(r.begin)
-        r.end?.let { analyzeExpression(it) }
+        val (bt, bc) = analyzeExpression(r.begin)
+        if (bt != ResolvedType.Integer) {
+            semanticError("For-loop begin bound must be integer: $r")
+        }
+        r.end?.let { e ->
+            val (et, _) = analyzeExpression(e)
+            if (et != ResolvedType.Integer) {
+                semanticError("For-loop end bound must be integer: $r")
+            }
+        }
+
     }
 
     private fun analyzeRoutineHeader(h: RoutineHeader): Pair<List<ResolvedType>, ResolvedType> {

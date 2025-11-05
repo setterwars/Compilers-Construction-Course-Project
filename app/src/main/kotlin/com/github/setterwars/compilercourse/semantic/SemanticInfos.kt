@@ -1,7 +1,4 @@
-package com.github.setterwars.compilercourse.parser.nodes
-
-import com.github.setterwars.compilercourse.semantic.PrimitiveTypeValue
-import com.github.setterwars.compilercourse.semantic.ResolvedType
+package com.github.setterwars.compilercourse.semantic
 
 // Marker for semantic info payloads attached to AST nodes
 interface SemanticInfo
@@ -53,4 +50,16 @@ data class UnaryIntegerSemanticInfo(
 
 data class TypeSemanticInfo(
     val resolvedType: ResolvedType,
+) : SemanticInfo
+
+data class IfStatementSemanticInfo(
+    val compiledCondition: Boolean?,
+) : SemanticInfo
+
+data class ForStatementSemanticInfo(
+    val neverExecuted: Boolean = false,
+) : SemanticInfo
+
+data class WhileStatementSemanticInfo(
+    val compiledCondition: Boolean?,
 ) : SemanticInfo
