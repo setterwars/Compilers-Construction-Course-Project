@@ -1,0 +1,30 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.12/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+Calculating task graph as no cached configuration is available for tasks: run --args=../tests/worked/APlusB.txt --semantic
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:processResources NO-SOURCE
+> Task :app:compileKotlin UP-TO-DATE
+> Task :app:compileJava NO-SOURCE
+> Task :app:classes UP-TO-DATE
+
+> Task :app:run
+OK! Found 1 declarations in ../tests/worked/APlusB.txt program
+Program
+  Routine main
+    Print
+      Expression : com.github.setterwars.compilercourse.semantic.ResolvedType$Integer@490d6c15
+        Relation : com.github.setterwars.compilercourse.semantic.ResolvedType$Integer@490d6c15 
+          Simple : com.github.setterwars.compilercourse.semantic.ResolvedType$Integer@490d6c15
+            Factor : com.github.setterwars.compilercourse.semantic.ResolvedType$Integer@490d6c15
+              UnaryModifiable
+                ModPrimary : com.github.setterwars.compilercourse.semantic.ResolvedType$Integer@490d6c15
+            PLUS
+              Factor : com.github.setterwars.compilercourse.semantic.ResolvedType$Integer@490d6c15
+                UnaryModifiable
+                  ModPrimary : com.github.setterwars.compilercourse.semantic.ResolvedType$Integer@490d6c15
+
+Semantic analysis passed: No errors found
+
+BUILD SUCCESSFUL in 9s
+2 actionable tasks: 1 executed, 1 up-to-date
+Configuration cache entry stored.

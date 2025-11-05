@@ -4,11 +4,21 @@ import com.github.setterwars.compilercourse.lexer.Lexer
 import com.github.setterwars.compilercourse.lexer.Token
 import com.github.setterwars.compilercourse.lexer.TokenType
 import com.github.setterwars.compilercourse.parser.Parser
+import com.github.setterwars.compilercourse.semantic.SemanticAnalyzer
 import java.io.File
 import java.io.FileReader
 
 fun main(args: Array<String>) {
-    val file = File(args[0])
+    if (args.isEmpty()) {
+        println("Usage: run <source-file> [--semantic] [--strict]")
+        return
+    }
+    val sourcePath = args[0]
+    val flags = args.drop(1).toSet()
+    val enableSemantic = flags.contains("--semantic") || flags.contains("--strict")
+    val strictMode = flags.contains("--strict")
+
+    val file = File(sourcePath)
     val lexer = Lexer(FileReader(file))
     val tokens = mutableListOf<Token>()
     while (true) {
@@ -18,5 +28,16 @@ fun main(args: Array<String>) {
     }
     val parser = Parser(tokens)
     val program = parser.parse()
-    println("OK! Found ${program.declarations.size} declarations in $file program")
+    println("OK! Found ${program.declarations.size} declarations in $sourcePath program")
+
+    if (enableSemantic) {
+        val analyzer = if (strictMode) SemanticAnalyzer(SemanticAnalyzer.Mode.Strict) else SemanticAnalyzer()
+        val result = analyzer.analyze(program)
+        if (result.errors.isEmpty()) {
+            println("Semantic analysis passed: No errors found")
+        } else {
+            println("Semantic analysis failed with ${result.errors.size} error(s):")
+            result.errors.forEach { error -> println("  $error") }
+        }
+    }
 }

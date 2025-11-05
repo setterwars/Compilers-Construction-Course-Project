@@ -1,0 +1,13 @@
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by net.rubygrapefruit.platform.internal.NativeLibraryLoader in an unnamed module (file:/home/setterwars/.gradle/wrapper/dists/gradle-8.12-bin/cetblhg4pflnnks72fxwobvgv/gradle-8.12/lib/native-platform-0.22-milestone-27.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+Calculating task graph as no cached configuration is available for tasks: clean compileKotlin
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:clean
+> Task :app:compileKotlin FROM-CACHE
+
+BUILD SUCCESSFUL in 797ms
+2 actionable tasks: 1 executed, 1 from cache
+Configuration cache entry stored.
