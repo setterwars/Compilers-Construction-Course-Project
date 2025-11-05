@@ -1,0 +1,6 @@
+var c: array[5] integer
+
+routine main() is
+    var a is 5
+    print c[6 + 2]
+end

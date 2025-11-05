@@ -45,7 +45,7 @@ class SemanticAnalyzer(private val mode: Mode = Mode.Permissive) {
 
     private fun error(message: String, line: Int) {
         if (mode == Mode.Strict) {
-            errors.add(SemanticError(message, line))
+            errors.add(SemanticError(message, line + 1))
         }
     }
 
@@ -214,7 +214,7 @@ class SemanticAnalyzer(private val mode: Mode = Mode.Permissive) {
     private fun analyzeWhileLoop(loop: WhileLoop, expectedReturnType: Type?) {
         val condType = inferExpressionType(loop.condition)
         if (!(condType == ResolvedType.Boolean || condType == ResolvedType.Unknown)) {
-            error("While loop condition must be boolean", 0)
+            error("While loop condition must be boolean", exprLine(loop.condition))
         }
 
         // Create new scope for loop body
@@ -260,7 +260,7 @@ class SemanticAnalyzer(private val mode: Mode = Mode.Permissive) {
     private fun analyzeIfStatement(statement: IfStatement, expectedReturnType: Type?) {
         val condType = inferExpressionType(statement.condition)
         if (!(condType == ResolvedType.Boolean || condType == ResolvedType.Unknown)) {
-            error("If statement condition must be boolean", 0)
+            error("If statement condition must be boolean", exprLine(statement.condition))
         }
 
         // Analyze then body
@@ -321,12 +321,15 @@ class SemanticAnalyzer(private val mode: Mode = Mode.Permissive) {
                         is ResolvedType.Array -> {
                             val indexType = inferExpressionType(accessor.expression)
                             if (!(indexType == ResolvedType.Integer || indexType == ResolvedType.Unknown)) {
-                                error("Array index must be integer", 0)
+                                error("Array index must be integer", modifiable.variable.token.span.line)
                             }
-                            val idxLiteral = extractIntegerLiteral(accessor.expression)
-                            if (mode == Mode.Strict && idxLiteral != null && currentType.size != null) {
-                                if (idxLiteral < 1 || idxLiteral > currentType.size) {
-                                    error("Array index out of bounds: $idxLiteral not in 1..${currentType.size}", 0)
+                            val idxConst = evalIntConstant(accessor.expression)
+                            if (mode == Mode.Strict && idxConst == null) {
+                                error("Array index must be a compile-time integer constant", modifiable.variable.token.span.line)
+                            }
+                            if (idxConst != null && currentType.size != null) {
+                                if (idxConst < 1 || idxConst > currentType.size) {
+                                    error("Array index out of bounds: $idxConst not in 1..${currentType.size}", modifiable.variable.token.span.line)
                                 }
                             }
                             currentType = currentType.elementType
@@ -336,7 +339,7 @@ class SemanticAnalyzer(private val mode: Mode = Mode.Permissive) {
                             currentType = ResolvedType.Unknown
                         }
                         else -> {
-                            error("Cannot index non-array type", 0)
+                            error("Cannot index non-array type", modifiable.variable.token.span.line)
                             currentType = ResolvedType.Unknown
                         }
                     }
@@ -356,7 +359,7 @@ class SemanticAnalyzer(private val mode: Mode = Mode.Permissive) {
         expression.rest?.forEach { (_, relation) ->
             val rightType = inferRelationType(relation)
             if (!((resultType == ResolvedType.Boolean || resultType == ResolvedType.Unknown) && (rightType == ResolvedType.Boolean || rightType == ResolvedType.Unknown))) {
-                error("Logical operators (and, or, xor) require boolean operands", 0)
+                error("Logical operators (and, or, xor) require boolean operands", exprLine(expression))
             }
             // result is boolean if both are boolean; otherwise unknown
             resultType = if (resultType == ResolvedType.Boolean && rightType == ResolvedType.Boolean) ResolvedType.Boolean else ResolvedType.Unknown
@@ -374,7 +377,7 @@ class SemanticAnalyzer(private val mode: Mode = Mode.Permissive) {
             val rightType = inferSimpleType(right)
 
             if (!typesCompatible(leftType, rightType)) {
-                error("Cannot compare incompatible types: ${typeToString(leftType)} and ${typeToString(rightType)}", 0)
+                error("Cannot compare incompatible types: ${typeToString(leftType)} and ${typeToString(rightType)}", relationLine(relation))
             }
 
             val t = ResolvedType.Boolean
@@ -516,6 +519,83 @@ class SemanticAnalyzer(private val mode: Mode = Mode.Permissive) {
                 else -> value
             }
         } else null
+    }
+
+    private fun exprLine(expression: Expression): Int {
+        // Try to find a representative token line inside expression
+        val r = expression.relation
+        return relationLine(r)
+    }
+
+    private fun relationLine(relation: Relation): Int {
+        val s = relation.simple
+        return simpleLine(s)
+    }
+
+    private fun simpleLine(simple: Simple): Int {
+        val f = simple.factor
+        return factorLine(f)
+    }
+
+    private fun factorLine(factor: Factor): Int {
+        val s = factor.summand
+        return when (s) {
+            is ExpressionInParenthesis -> exprLine(s.expression)
+            is UnaryInteger -> s.integerLiteral.token.span.line
+            is UnaryReal -> s.realLiteral.token.span.line
+            is UnaryModifiablePrimary -> s.modifiablePrimary.variable.token.span.line
+            is BooleanLiteral -> 0
+            is RoutineCall -> s.routineName.token.span.line
+            else -> 0
+        }
+    }
+    private fun evalIntConstant(expression: Expression): Int? {
+        // Expression supports logical ops; indices must be pure arithmetic integer expression
+        if (expression.rest != null && expression.rest.isNotEmpty()) return null
+        return evalRelationIntConst(expression.relation)
+    }
+
+    private fun evalRelationIntConst(relation: Relation): Int? {
+        // No comparisons allowed for an index constant
+        if (relation.comparison != null) return null
+        return evalSimpleIntConst(relation.simple)
+    }
+
+    private fun evalSimpleIntConst(simple: Simple): Int? {
+        var acc = evalFactorIntConst(simple.factor) ?: return null
+        simple.rest?.forEach { (op, factor) ->
+            val rhs = evalFactorIntConst(factor) ?: return null
+            acc = when (op) {
+                SimpleOperator.PLUS -> acc + rhs
+                SimpleOperator.MINUS -> acc - rhs
+            }
+        }
+        return acc
+    }
+
+    private fun evalFactorIntConst(factor: Factor): Int? {
+        var acc = evalSummandIntConst(factor.summand) ?: return null
+        factor.rest?.forEach { (op, summand) ->
+            val rhs = evalSummandIntConst(summand) ?: return null
+            acc = when (op) {
+                FactorOperator.PRODUCT -> acc * rhs
+                FactorOperator.DIVISION -> if (rhs != 0) acc / rhs else return null
+                FactorOperator.MODULO -> if (rhs != 0) acc % rhs else return null
+            }
+        }
+        return acc
+    }
+
+    private fun evalSummandIntConst(summand: Summand): Int? {
+        return when (summand) {
+            is ExpressionInParenthesis -> evalIntConstant(summand.expression)
+            is UnaryInteger -> {
+                val raw = summand.integerLiteral.token.lexeme.toIntOrNull() ?: return null
+                if (summand.unaryOperator == UnarySign.MINUS) -raw else raw
+            }
+            // Other primaries (real, modifiable, routine call, boolean) are not integer constants
+            else -> null
+        }
     }
 
     private fun computeRelationConst(relation: Relation): Boolean? {
