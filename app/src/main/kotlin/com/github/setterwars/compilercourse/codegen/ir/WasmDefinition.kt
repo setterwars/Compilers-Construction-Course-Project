@@ -21,6 +21,18 @@ data class WasmFunc(
     val isStart: Boolean = false,
 ) : WasmDefinition
 
+interface WasmGlobal : WasmDefinition
+
+data class WasmI32Global(
+    val mutable: Boolean = false,
+    val initValue: Int,
+) : WasmGlobal
+
+data class WasmF64Global(
+    val mutable: Boolean = false,
+    val initValue: Double,
+)
+
 data class WasmMemory(
     val minPages: Int,
     val maxPages: Int? = null,

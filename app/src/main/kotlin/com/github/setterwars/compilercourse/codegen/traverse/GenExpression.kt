@@ -31,30 +31,29 @@ import com.github.setterwars.compilercourse.parser.nodes.UnaryModifiablePrimary
 import com.github.setterwars.compilercourse.parser.nodes.UnaryNot
 import com.github.setterwars.compilercourse.parser.nodes.UnaryReal
 import com.github.setterwars.compilercourse.parser.nodes.UnarySign
-import java.util.Stack
 
 data class GenExpressionResult(
     val instructions: List<Instr>,
-    val stackTopValue: StackTopValue,
+    val onStack: StackValue,
 )
 
-fun WasmGen.genRealLiteral(realLiteral: RealLiteral): List<Instr> {
+fun WasmStructureGenerator.genRealLiteral(realLiteral: RealLiteral): List<Instr> {
     return listOf(F64Const(realLiteral.token.lexeme.toDouble()))
 }
 
-fun WasmGen.genIntegerLiteral(integerLiteral: IntegerLiteral): List<Instr> {
+fun WasmStructureGenerator.genIntegerLiteral(integerLiteral: IntegerLiteral): List<Instr> {
     return listOf(I32Const(integerLiteral.token.lexeme.toInt()))
 }
 
-fun WasmGen.genBooleanLiteral(booleanLiteral: BooleanLiteral): List<Instr> {
+fun WasmStructureGenerator.genBooleanLiteral(booleanLiteral: BooleanLiteral): List<Instr> {
     return listOf(I32Const(if (booleanLiteral == BooleanLiteral.TRUE) 1 else 0))
 }
 
-fun WasmGen.genUnaryModifiablePrimary(unaryModifiablePrimary: UnaryModifiablePrimary): GenExpressionResult {
+fun WasmStructureGenerator.genUnaryModifiablePrimary(unaryModifiablePrimary: UnaryModifiablePrimary): GenExpressionResult {
     TODO()
 }
 
-fun WasmGen.genUnaryReal(unaryReal: UnaryReal): List<Instr> {
+fun WasmStructureGenerator.genUnaryReal(unaryReal: UnaryReal): List<Instr> {
     val result = mutableListOf<Instr>()
     result.addAll(genRealLiteral(unaryReal.realLiteral))
     if (unaryReal.unaryRealOperator == UnarySign.MINUS) {
@@ -64,7 +63,7 @@ fun WasmGen.genUnaryReal(unaryReal: UnaryReal): List<Instr> {
     return result
 }
 
-fun WasmGen.genUnaryInteger(unaryInteger: UnaryInteger): List<Instr> {
+fun WasmStructureGenerator.genUnaryInteger(unaryInteger: UnaryInteger): List<Instr> {
     val result = mutableListOf<Instr>()
     result.addAll(genIntegerLiteral(unaryInteger.integerLiteral))
     if (unaryInteger.unaryOperator == UnarySign.MINUS) {
@@ -77,13 +76,13 @@ fun WasmGen.genUnaryInteger(unaryInteger: UnaryInteger): List<Instr> {
     return result
 }
 
-fun WasmGen.genPrimary(primary: Primary): GenExpressionResult {
+fun WasmStructureGenerator.genPrimary(primary: Primary): GenExpressionResult {
     return when (primary) {
         is UnaryInteger -> {
             val instructions = genUnaryInteger(primary)
             return GenExpressionResult(
                 instructions = instructions,
-                stackTopValue = StackTopValue.I32
+                onStack = StackValue.I32
             )
         }
 
@@ -91,7 +90,7 @@ fun WasmGen.genPrimary(primary: Primary): GenExpressionResult {
             val instructions = genUnaryReal(primary)
             return GenExpressionResult(
                 instructions = instructions,
-                stackTopValue = StackTopValue.F64
+                onStack = StackValue.F64
             )
         }
 
@@ -103,11 +102,11 @@ fun WasmGen.genPrimary(primary: Primary): GenExpressionResult {
     }
 }
 
-fun WasmGen.genSummand(summand: Summand): GenExpressionResult {
+fun WasmStructureGenerator.genSummand(summand: Summand): GenExpressionResult {
     TODO()
 }
 
-fun WasmGen.genFactor(factor: Factor): GenExpressionResult {
+fun WasmStructureGenerator.genFactor(factor: Factor): GenExpressionResult {
     val summandGenResult = genSummand(factor.summand)
     if (factor.rest == null || factor.rest.isEmpty()) {
         return summandGenResult
@@ -119,12 +118,12 @@ fun WasmGen.genFactor(factor: Factor): GenExpressionResult {
     for ((op, next) in factor.rest) {
         val nextGenResult = genSummand(next)
         instructions.addAll(nextGenResult.instructions)
-        if (nextGenResult.stackTopValue != summandGenResult.stackTopValue) {
+        if (nextGenResult.onStack != summandGenResult.onStack) {
             throw CodegenException()
         }
 
-        when (summandGenResult.stackTopValue) {
-            StackTopValue.I32 -> {
+        when (summandGenResult.onStack) {
+            StackValue.I32 -> {
                 val binOp = when (op) {
                     FactorOperator.PRODUCT  -> I32BinOp.Mul
                     FactorOperator.DIVISION -> I32BinOp.DivS
@@ -133,7 +132,7 @@ fun WasmGen.genFactor(factor: Factor): GenExpressionResult {
                 instructions.add(I32Binary(binOp))
             }
 
-            StackTopValue.F64 -> {
+            StackValue.F64 -> {
                 val binOp = when (op) {
                     FactorOperator.PRODUCT  -> F64BinOp.Mul
                     FactorOperator.DIVISION -> F64BinOp.Div
@@ -148,17 +147,14 @@ fun WasmGen.genFactor(factor: Factor): GenExpressionResult {
     }
     return GenExpressionResult(
         instructions = instructions,
-        stackTopValue = summandGenResult.stackTopValue
+        onStack = summandGenResult.onStack
     )
 }
 
-fun WasmGen.genSimple(simple: Simple): GenExpressionResult {
+fun WasmStructureGenerator.genSimple(simple: Simple): GenExpressionResult {
     val factorGenResult = genFactor(simple.factor)
     if (simple.rest == null || simple.rest.isEmpty()) {
         return factorGenResult
-    }
-    if (factorGenResult.stackTopValue is ObjReference) {
-        throw CodegenException()
     }
 
     val instructions = mutableListOf<Instr>()
@@ -166,12 +162,12 @@ fun WasmGen.genSimple(simple: Simple): GenExpressionResult {
     for ((op, next) in simple.rest) {
         val nextGenResult = genFactor(next)
         instructions.addAll(nextGenResult.instructions)
-        if (nextGenResult.stackTopValue != factorGenResult.stackTopValue) {
+        if (nextGenResult.onStack != factorGenResult.onStack) {
             throw CodegenException()
         }
 
-        when (factorGenResult.stackTopValue) {
-            StackTopValue.I32 -> {
+        when (factorGenResult.onStack) {
+            StackValue.I32 -> {
                 val binOp = when (op) {
                     SimpleOperator.PLUS  -> I32BinOp.Add
                     SimpleOperator.MINUS -> I32BinOp.Sub
@@ -179,7 +175,7 @@ fun WasmGen.genSimple(simple: Simple): GenExpressionResult {
                 instructions.add(I32Binary(binOp))
             }
 
-            StackTopValue.F64 -> {
+            StackValue.F64 -> {
                 val binOp = when (op) {
                     SimpleOperator.PLUS  -> F64BinOp.Add
                     SimpleOperator.MINUS -> F64BinOp.Sub
@@ -192,11 +188,11 @@ fun WasmGen.genSimple(simple: Simple): GenExpressionResult {
     }
     return GenExpressionResult(
         instructions = instructions,
-        stackTopValue = factorGenResult.stackTopValue,
+        onStack = factorGenResult.onStack,
     )
 }
 
-fun WasmGen.genRelation(relation: Relation): GenExpressionResult {
+fun WasmStructureGenerator.genRelation(relation: Relation): GenExpressionResult {
     val simpleGenResult = genSimple(relation.simple)
     if (relation.comparison == null) {
         return simpleGenResult
@@ -206,13 +202,13 @@ fun WasmGen.genRelation(relation: Relation): GenExpressionResult {
     instructions.addAll(simpleGenResult.instructions)
 
     val anotherGenResult = genSimple(relation.comparison.second)
-    if (anotherGenResult.stackTopValue != simpleGenResult.stackTopValue) {
+    if (anotherGenResult.onStack != simpleGenResult.onStack) {
         throw CodegenException()
     }
     instructions.addAll(anotherGenResult.instructions)
 
-    when (simpleGenResult.stackTopValue) {
-        StackTopValue.I32 -> {
+    when (simpleGenResult.onStack) {
+        StackValue.I32 -> {
             val op = when (relation.comparison.first) {
                 RelationOperator.LT  -> I32RelOp.LtS
                 RelationOperator.LE  -> I32RelOp.LeS
@@ -224,7 +220,7 @@ fun WasmGen.genRelation(relation: Relation): GenExpressionResult {
             instructions.add(I32Compare(op))
         }
 
-        StackTopValue.F64 -> {
+        StackValue.F64 -> {
             val op = when (relation.comparison.first) {
                 RelationOperator.LT  -> F64RelOp.Lt
                 RelationOperator.LE  -> F64RelOp.Le
@@ -240,16 +236,16 @@ fun WasmGen.genRelation(relation: Relation): GenExpressionResult {
     }
     return GenExpressionResult(
         instructions = instructions,
-        stackTopValue = StackTopValue.I32,
+        onStack = StackValue.I32,
     )
 }
 
-fun WasmGen.genExpression(expression: Expression): GenExpressionResult {
+fun WasmStructureGenerator.genExpression(expression: Expression): GenExpressionResult {
     val relationGenResult = genRelation(expression.relation)
     if (expression.rest == null || expression.rest.isEmpty()) {
         return relationGenResult
     }
-    if (relationGenResult.stackTopValue != StackTopValue.I32) {
+    if (relationGenResult.onStack != StackValue.I32) {
         throw CodegenException()
     }
 
@@ -258,7 +254,7 @@ fun WasmGen.genExpression(expression: Expression): GenExpressionResult {
     for ((op, next) in expression.rest) {
         val nextGenResult = genRelation(next)
         instructions.addAll(nextGenResult.instructions)
-        if (nextGenResult.stackTopValue != relationGenResult.stackTopValue) {
+        if (nextGenResult.onStack != relationGenResult.onStack) {
             throw CodegenException()
         }
 
@@ -271,7 +267,7 @@ fun WasmGen.genExpression(expression: Expression): GenExpressionResult {
     }
     return GenExpressionResult(
         instructions = instructions,
-        stackTopValue = StackTopValue.I32,
+        onStack = StackValue.I32,
     )
 }
 
