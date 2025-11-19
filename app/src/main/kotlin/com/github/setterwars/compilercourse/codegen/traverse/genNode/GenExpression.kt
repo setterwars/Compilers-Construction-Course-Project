@@ -32,6 +32,7 @@ import com.github.setterwars.compilercourse.parser.nodes.Primary
 import com.github.setterwars.compilercourse.parser.nodes.RealLiteral
 import com.github.setterwars.compilercourse.parser.nodes.Relation
 import com.github.setterwars.compilercourse.parser.nodes.RelationOperator
+import com.github.setterwars.compilercourse.parser.nodes.RoutineCall
 import com.github.setterwars.compilercourse.parser.nodes.Simple
 import com.github.setterwars.compilercourse.parser.nodes.SimpleOperator
 import com.github.setterwars.compilercourse.parser.nodes.Summand
@@ -137,7 +138,7 @@ fun WasmStructureGenerator.genUnaryInteger(unaryInteger: UnaryInteger): List<Ins
 }
 
 fun WasmStructureGenerator.genPrimary(primary: Primary): GenExpressionResult {
-    return when (primary) {
+    when (primary) {
         is UnaryInteger -> {
             val instructions = genUnaryInteger(primary)
             return GenExpressionResult(
@@ -166,7 +167,15 @@ fun WasmStructureGenerator.genPrimary(primary: Primary): GenExpressionResult {
             )
         }
 
-        else -> TODO()
+        is RoutineCall -> {
+            val routineCallResult = genRoutineCall(primary)
+            return GenExpressionResult(
+                instructions = routineCallResult.instructions,
+                onStack = routineCallResult.stackValue!!
+            )
+        }
+
+        else -> throw CodegenException()
     }
 }
 
@@ -308,7 +317,7 @@ fun WasmStructureGenerator.genRelation(relation: Relation): GenExpressionResult 
             instructions.add(F64Compare(op))
         }
 
-        else -> CodegenException()
+        else -> throw CodegenException()
     }
     return GenExpressionResult(
         instructions = instructions,

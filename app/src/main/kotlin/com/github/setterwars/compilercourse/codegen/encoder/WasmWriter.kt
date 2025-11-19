@@ -1,5 +1,9 @@
 package com.github.setterwars.compilercourse.codegen.encoder
 
+import com.github.setterwars.compilercourse.codegen.ir.I32Unary
+import com.github.setterwars.compilercourse.codegen.ir.I32UnaryOp
+import com.github.setterwars.compilercourse.codegen.ir.GlobalGet
+import com.github.setterwars.compilercourse.codegen.ir.GlobalSet
 import com.github.setterwars.compilercourse.codegen.ir.Block
 import com.github.setterwars.compilercourse.codegen.ir.Br
 import com.github.setterwars.compilercourse.codegen.ir.BrIf
@@ -225,13 +229,35 @@ fun WasmWriter.writeInstr(instr: Instr) {
 
         is I32Binary -> {
             val op = when (instr.op) {
-                I32BinOp.Add -> 0x6A   // i32.add
-                I32BinOp.Sub -> 0x6B   // i32.sub
-                I32BinOp.Mul -> 0x6C   // i32.mul
-                I32BinOp.DivS -> 0x6D  // i32.div_s
-                I32BinOp.DivU -> 0x6E  // i32.div_u
+                I32BinOp.Add  -> 0x6A   // i32.add
+                I32BinOp.Sub  -> 0x6B   // i32.sub
+                I32BinOp.Mul  -> 0x6C   // i32.mul
+                I32BinOp.DivS -> 0x6D   // i32.div_s
+                I32BinOp.DivU -> 0x6E   // i32.div_u
+                I32BinOp.RemS -> 0x6F   // i32.rem_s
+                I32BinOp.RemU -> 0x70   // i32.rem_u
+                I32BinOp.And  -> 0x71   // i32.and
+                I32BinOp.Or   -> 0x72   // i32.or
+                I32BinOp.Xor  -> 0x73   // i32.xor
             }
             u8(op)
+        }
+
+        is I32Unary -> {
+            val op = when (instr.op) {
+                I32UnaryOp.EQZ -> 0x45  // i32.eqz
+            }
+            u8(op)
+        }
+
+        is GlobalGet -> {
+            u8(0x23) // global.get
+            writeU32(instr.index)
+        }
+
+        is GlobalSet -> {
+            u8(0x24) // global.set
+            writeU32(instr.index)
         }
 
         is F64Binary -> {
@@ -271,5 +297,6 @@ fun WasmWriter.writeInstr(instr: Instr) {
             }
             u8(op)
         }
+
     }
 }

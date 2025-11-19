@@ -1,7 +1,4 @@
-routine main() is
-    if 10.9 > 4 then
-        print 1 + 9 * (9 / 100)
-    else
-        print 0
-    end
+routine main(a: integer, b: integer) is
+    var c : integer
+    c := a + b
 end

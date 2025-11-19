@@ -2,8 +2,6 @@ package com.github.setterwars.compilercourse.codegen.traverse
 
 class DeclarationManager(private val memoryManager: MemoryManager) {
 
-    private var globalVariablesCount = 0
-
     data class RoutineDescription(
         val name: String,
         val orderIndex: Int,
@@ -19,10 +17,13 @@ class DeclarationManager(private val memoryManager: MemoryManager) {
 
     data class TypeDescription(val name: String, val cellType: CellType)
 
-    private val routines = mutableMapOf<String, RoutineDescription>()
-    private val variables = mutableListOf<MutableMap<String, VariableDescription>>()
-    private val types = mutableListOf<MutableMap<String, TypeDescription>>()
+    val allVariables = mutableListOf<VariableDescription>()
 
+    val routines = mutableMapOf<String, RoutineDescription>()
+    val variables = mutableListOf<MutableMap<String, VariableDescription>>()
+    val types = mutableListOf<MutableMap<String, TypeDescription>>()
+
+    // TODO: fix parameter share for routine calls
     fun declareRoutine(name: String, returnValue: StackValue?, parameters: List<Pair<String, CellType>>) {
         val paramsList = mutableListOf<VariableDescription>()
         for ((name, cellType) in parameters) {
@@ -54,20 +55,23 @@ class DeclarationManager(private val memoryManager: MemoryManager) {
     fun declareFunctionVariables(name: String) {
         for (variableDescription in routines[name]!!.parameters) {
             variables.last()[variableDescription.name] = variableDescription
+            allVariables.add(variableDescription)
         }
     }
 
     fun declareVariable(name: String, cellType: CellType) {
-        variables.last()[name] = VariableDescription(
+        val vd = VariableDescription(
             name = name,
             cellType = cellType,
             address = memoryManager.getCurrentPointer()
         )
+        variables.last()[name] = vd
+        allVariables.add(vd)
         memoryManager.advance(cellType.bytesSize)
     }
 
     fun getVariable(name: String): VariableDescription {
-        for (i in (variables.size - 1)..0) {
+        for (i in (variables.size - 1) downTo 0) {
             return variables[i][name] ?: continue
         }
         throw CodegenException()

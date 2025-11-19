@@ -15,8 +15,12 @@ import com.github.setterwars.compilercourse.parser.nodes.RoutineCall
 import com.github.setterwars.compilercourse.parser.nodes.Statement
 
 // Produce instr that will execute certain statement
-fun WasmStructureGenerator.genStatement(statement: Statement): Instr {
-    TODO()
+fun WasmStructureGenerator.genStatement(statement: Statement): List<Instr> {
+    return when (statement) {
+        is Assignment -> genAssignment(statement)
+        is RoutineCall -> genRoutineCall(statement).instructions
+        else -> TODO()
+    }
 }
 
 fun WasmStructureGenerator.assignExpressionToAddressOnStack(
@@ -49,7 +53,12 @@ fun WasmStructureGenerator.genAssignment(assignment: Assignment): List<Instr> {
     return result
 }
 
-fun WasmStructureGenerator.genRoutineCall(routineCall: RoutineCall): List<Instr> {
+data class RoutineCallResult(
+    val instructions: List<Instr>,
+    val stackValue: StackValue?,
+)
+
+fun WasmStructureGenerator.genRoutineCall(routineCall: RoutineCall): RoutineCallResult {
     val result = mutableListOf<Instr>()
     val routineName = routineCall.routineName.token.lexeme
     val rd = declarationManager.getRoutine(routineName)
@@ -58,6 +67,9 @@ fun WasmStructureGenerator.genRoutineCall(routineCall: RoutineCall): List<Instr>
         assignExpressionToAddressOnStack(vd.cellType, routineCall.arguments[i].expression)
     }
     result.add(Call(rd.orderIndex))
-    return result
+    return RoutineCallResult(
+        instructions = result,
+        stackValue = rd.returnValue
+    )
 }
 
