@@ -2,12 +2,20 @@ package com.github.setterwars.compilercourse.codegen.traverse
 
 class DeclarationManager(private val memoryManager: MemoryManager) {
 
+    private var globalVariablesCount = 0
+
     data class RoutineDescription(
         val name: String,
         val orderIndex: Int,
         val returnValue: StackValue?, // null = empty stack when finished
     )
-    data class VariableDescription(val name: String, val dataAddress: Int, val data: CodegenData)
+
+    data class VariableDescription(
+        val name: String,
+        val address: Int,
+        val data: CodegenData,
+    )
+
     data class TypeDescription(val name: String, val data: CodegenData)
 
     private val routines = mutableMapOf<String, RoutineDescription>()
@@ -31,8 +39,8 @@ class DeclarationManager(private val memoryManager: MemoryManager) {
     fun declareVariable(name: String, data: CodegenData) {
         variables.last()[name] = VariableDescription(
             name = name,
-            dataAddress = memoryManager.getCurrentPointer(),
-            data = data
+            address = memoryManager.getCurrentPointer(),
+            data = data,
         )
         memoryManager.advance(data.bytesSize)
     }

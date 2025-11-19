@@ -26,7 +26,7 @@ data class Factor(
 )
 enum class FactorOperator { PRODUCT, DIVISION, MODULO }
 
-interface Summand
+sealed interface Summand
 
 data class ExpressionInParenthesis(
     val expression: Expression,

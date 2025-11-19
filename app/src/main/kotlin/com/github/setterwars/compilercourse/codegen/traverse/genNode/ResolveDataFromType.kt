@@ -52,3 +52,4 @@ fun WasmStructureGenerator.resolveDataFromType(type: Type): CodegenData {
         }
     }
 }
+

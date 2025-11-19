@@ -1,5 +1,4 @@
 package com.github.setterwars.compilercourse.codegen.traverse.genNode
 
-class GenDeclaration {
+class ResolveModifiablePrimary {
 }
-// Add support for global variables

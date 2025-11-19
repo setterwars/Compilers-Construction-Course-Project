@@ -6,7 +6,6 @@ import com.github.setterwars.compilercourse.codegen.ir.ValueType
 import com.github.setterwars.compilercourse.codegen.ir.WasmFunc
 import com.github.setterwars.compilercourse.codegen.traverse.StackValue
 import com.github.setterwars.compilercourse.codegen.traverse.WasmStructureGenerator
-import com.github.setterwars.compilercourse.codegen.traverse.genExpression
 import com.github.setterwars.compilercourse.codegen.traverse.toStackValue
 import com.github.setterwars.compilercourse.parser.nodes.FullRoutineBody
 import com.github.setterwars.compilercourse.parser.nodes.RoutineBody

@@ -1,24 +1,35 @@
-package com.github.setterwars.compilercourse.codegen.traverse
+package com.github.setterwars.compilercourse.codegen.traverse.genNode
 
 import com.github.setterwars.compilercourse.codegen.ir.F64BinOp
 import com.github.setterwars.compilercourse.codegen.ir.F64Binary
 import com.github.setterwars.compilercourse.codegen.ir.F64Compare
 import com.github.setterwars.compilercourse.codegen.ir.F64Const
+import com.github.setterwars.compilercourse.codegen.ir.F64Load
 import com.github.setterwars.compilercourse.codegen.ir.F64RelOp
 import com.github.setterwars.compilercourse.codegen.ir.I32BinOp
 import com.github.setterwars.compilercourse.codegen.ir.I32Binary
 import com.github.setterwars.compilercourse.codegen.ir.I32Compare
 import com.github.setterwars.compilercourse.codegen.ir.I32Const
+import com.github.setterwars.compilercourse.codegen.ir.I32Load
 import com.github.setterwars.compilercourse.codegen.ir.I32RelOp
 import com.github.setterwars.compilercourse.codegen.ir.I32Unary
 import com.github.setterwars.compilercourse.codegen.ir.I32UnaryOp
 import com.github.setterwars.compilercourse.codegen.ir.Instr
+import com.github.setterwars.compilercourse.codegen.traverse.CodegenData
+import com.github.setterwars.compilercourse.codegen.traverse.CodegenException
+import com.github.setterwars.compilercourse.codegen.traverse.StackValue
+import com.github.setterwars.compilercourse.codegen.traverse.WasmStructureGenerator
+import com.github.setterwars.compilercourse.codegen.traverse.toStackValue
+import com.github.setterwars.compilercourse.parser.nodes.ArrayAccessor
 import com.github.setterwars.compilercourse.parser.nodes.BooleanLiteral
 import com.github.setterwars.compilercourse.parser.nodes.Expression
+import com.github.setterwars.compilercourse.parser.nodes.ExpressionInParenthesis
 import com.github.setterwars.compilercourse.parser.nodes.ExpressionOperator
 import com.github.setterwars.compilercourse.parser.nodes.Factor
 import com.github.setterwars.compilercourse.parser.nodes.FactorOperator
+import com.github.setterwars.compilercourse.parser.nodes.FieldAccessor
 import com.github.setterwars.compilercourse.parser.nodes.IntegerLiteral
+import com.github.setterwars.compilercourse.parser.nodes.ModifiablePrimary
 import com.github.setterwars.compilercourse.parser.nodes.Primary
 import com.github.setterwars.compilercourse.parser.nodes.RealLiteral
 import com.github.setterwars.compilercourse.parser.nodes.Relation
@@ -49,8 +60,96 @@ fun WasmStructureGenerator.genBooleanLiteral(booleanLiteral: BooleanLiteral): Li
     return listOf(I32Const(if (booleanLiteral == BooleanLiteral.TRUE) 1 else 0))
 }
 
-fun WasmStructureGenerator.genUnaryModifiablePrimary(unaryModifiablePrimary: UnaryModifiablePrimary): GenExpressionResult {
-    TODO()
+// Put the value of modifiable primary with applied unary operator on stack
+fun WasmStructureGenerator.genUnaryModifiablePrimary(
+    unaryModifiablePrimary: UnaryModifiablePrimary
+): GenExpressionResult {
+    val modifiablePrimaryGenResult = genModifiablePrimary(unaryModifiablePrimary.modifiablePrimary)
+    if (unaryModifiablePrimary.unaryOperator == null) {
+        return modifiablePrimaryGenResult
+    }
+    val result = mutableListOf<Instr>()
+    result.addAll(modifiablePrimaryGenResult.instructions)
+    when (modifiablePrimaryGenResult.onStack) {
+        is StackValue.I32 -> {
+            if (unaryModifiablePrimary.unaryOperator == UnarySign.MINUS) {
+                result.add(0, I32Const(0))
+                result.add(I32Binary(I32BinOp.Sub))
+            }
+            if (unaryModifiablePrimary.unaryOperator == UnaryNot) {
+                result.add(I32Unary(I32UnaryOp.EQZ))
+            }
+        }
+        is StackValue.F64 -> {
+            if (unaryModifiablePrimary.unaryOperator == UnarySign.MINUS) {
+                result.add(0, F64Const(0.0))
+                result.add(F64Binary(F64BinOp.Sub))
+            }
+        }
+        is StackValue.ObjReference -> {
+            throw CodegenException()
+        }
+    }
+    return GenExpressionResult(
+        instructions = result,
+        onStack = modifiablePrimaryGenResult.onStack
+    )
+}
+
+// Put the value of modifiable primary (i.e. variable) on stack
+// For primitive values, resolve the primitive value as well
+fun WasmStructureGenerator.genModifiablePrimary(
+    modifiablePrimary: ModifiablePrimary,
+): GenExpressionResult {
+    val result = mutableListOf<Instr>()
+    val variableDescription = declarationManager.getVariable(modifiablePrimary.variable.token.lexeme)
+    var codegenData = variableDescription.data
+
+    result.add(I32Const(variableDescription.address))
+    result.add(I32Load())
+    if (modifiablePrimary.accessors != null) {
+        for (accessor in modifiablePrimary.accessors) {
+            when (accessor) {
+                is ArrayAccessor -> {
+                    if (codegenData is CodegenData.Array) {
+                        result.addAll(genExpression(accessor.expression).instructions)
+                        result.add(I32Const(1))
+                        result.add(I32Binary(I32BinOp.Sub))
+                        result.add(I32Const(codegenData.elementsData.bytesSize))
+                        result.add(I32Binary(I32BinOp.Mul))
+
+                        codegenData = codegenData.elementsData
+                    } else {
+                        throw CodegenException()
+                    }
+                }
+                is FieldAccessor -> {
+                    if (codegenData is CodegenData.Record) {
+                        val neededFieldIndex = codegenData.fields.indexOfFirst { it.first == accessor.identifier.token.lexeme }
+                        for (i in 0..<neededFieldIndex) {
+                            result.add(I32Const(codegenData.fields[i].second.bytesSize))
+                            result.add(I32Binary(I32BinOp.Add))
+                        }
+
+                        codegenData = codegenData.fields[neededFieldIndex].second
+                    } else {
+                        throw CodegenException()
+                    }
+                }
+            }
+        }
+    }
+
+    if (codegenData is CodegenData.I32) {
+        result.add(I32Load())
+    }
+    if (codegenData is CodegenData.F64) {
+        result.add(F64Load())
+    }
+    return GenExpressionResult(
+        instructions = result,
+        onStack = codegenData.toStackValue()
+    )
 }
 
 fun WasmStructureGenerator.genUnaryReal(unaryReal: UnaryReal): List<Instr> {
@@ -98,12 +197,28 @@ fun WasmStructureGenerator.genPrimary(primary: Primary): GenExpressionResult {
             return genUnaryModifiablePrimary(primary)
         }
 
+        is BooleanLiteral -> {
+            val instructions = genBooleanLiteral(primary)
+            return GenExpressionResult(
+                instructions = instructions,
+                onStack = StackValue.I32,
+            )
+        }
+
         else -> TODO()
     }
 }
 
+// Calculate summand and put single value on stack
 fun WasmStructureGenerator.genSummand(summand: Summand): GenExpressionResult {
-    TODO()
+    return when (summand) {
+        is ExpressionInParenthesis -> {
+            genExpression(summand.expression)
+        }
+        is Primary -> {
+            genPrimary(summand)
+        }
+    }
 }
 
 fun WasmStructureGenerator.genFactor(factor: Factor): GenExpressionResult {

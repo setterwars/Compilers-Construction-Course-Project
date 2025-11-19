@@ -34,7 +34,6 @@ object Drop : Instr
 // Call
 data class Call(val funcIndex: Int) : Instr
 
-
 // Locals
 data class LocalGet(val index: Int) : Instr
 data class LocalSet(val index: Int) : Instr
@@ -70,6 +69,12 @@ enum class F64RelOp {
     Eq, Ne, Lt, Gt, Le, Ge,
 }
 data class F64Compare(val op: F64RelOp) : Instr
+
+
+// Globals
+data class GlobalGet(val index: Int) : Instr
+data class GlobalSet(val index: Int) : Instr
+
 
 // Memory
 data class I32Load(
