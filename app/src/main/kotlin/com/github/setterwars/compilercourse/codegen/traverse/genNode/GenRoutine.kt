@@ -14,35 +14,40 @@ import com.github.setterwars.compilercourse.parser.nodes.SingleExpressionBody
 
 fun WasmStructureGenerator.genRoutineDeclaration(routineDeclaration: RoutineDeclaration): WasmFunc {
     val returnValue: StackValue? = routineDeclaration.header.returnType?.let {
-        resolveDataFromType(it)
+        resolveCellTypeFromType(it)
     }?.toStackValue()
     val routineName = routineDeclaration.header.name.token.lexeme
 
+    val params = routineDeclaration.header.parameters.parameters.map {
+        it.name.token.lexeme to resolveCellTypeFromType(it.type)
+    }
     if (declarationManager.getRoutineOrNull(routineName) == null) {
         declarationManager.declareRoutine(
             name = routineName,
-            returnValue = returnValue
+            returnValue = returnValue,
+            parameters = params,
         )
 
     }
     // Determine function type
-    val params: List<ValueType> = routineDeclaration.header.parameters.parameters.map {
-        val resolvedData = resolveDataFromType(it.type).toStackValue()
+    val wasmParams: List<ValueType> = routineDeclaration.header.parameters.parameters.map {
+        val resolvedData = resolveCellTypeFromType(it.type).toStackValue()
         when (resolvedData) {
-            is StackValue.I32, is StackValue.ObjReference -> ValueType.I32
+            is StackValue.I32, is StackValue.CellAddress -> ValueType.I32
             is StackValue.F64 -> ValueType.F64
         }
     }
     val result: ValueType? = returnValue?.let {
         when (it) {
-            is StackValue.I32, is StackValue.ObjReference -> ValueType.I32
+            is StackValue.I32, is StackValue.CellAddress -> ValueType.I32
             is StackValue.F64 -> ValueType.F64
         }
     }
     val functionType = FuncType(
-        params = params,
+        params = wasmParams,
         results = result?.let { listOf(it) } ?: emptyList()
     )
+    declarationManager.declareFunctionVariables(routineName)
     val body = genRoutineBody(routineDeclaration.body!!) // TODO: add support for forward declaration
     return WasmFunc(
         type = functionType,

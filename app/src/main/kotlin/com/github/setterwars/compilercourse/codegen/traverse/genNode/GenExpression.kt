@@ -15,19 +15,17 @@ import com.github.setterwars.compilercourse.codegen.ir.I32RelOp
 import com.github.setterwars.compilercourse.codegen.ir.I32Unary
 import com.github.setterwars.compilercourse.codegen.ir.I32UnaryOp
 import com.github.setterwars.compilercourse.codegen.ir.Instr
-import com.github.setterwars.compilercourse.codegen.traverse.CodegenData
+import com.github.setterwars.compilercourse.codegen.traverse.CellType
 import com.github.setterwars.compilercourse.codegen.traverse.CodegenException
 import com.github.setterwars.compilercourse.codegen.traverse.StackValue
 import com.github.setterwars.compilercourse.codegen.traverse.WasmStructureGenerator
 import com.github.setterwars.compilercourse.codegen.traverse.toStackValue
-import com.github.setterwars.compilercourse.parser.nodes.ArrayAccessor
 import com.github.setterwars.compilercourse.parser.nodes.BooleanLiteral
 import com.github.setterwars.compilercourse.parser.nodes.Expression
 import com.github.setterwars.compilercourse.parser.nodes.ExpressionInParenthesis
 import com.github.setterwars.compilercourse.parser.nodes.ExpressionOperator
 import com.github.setterwars.compilercourse.parser.nodes.Factor
 import com.github.setterwars.compilercourse.parser.nodes.FactorOperator
-import com.github.setterwars.compilercourse.parser.nodes.FieldAccessor
 import com.github.setterwars.compilercourse.parser.nodes.IntegerLiteral
 import com.github.setterwars.compilercourse.parser.nodes.ModifiablePrimary
 import com.github.setterwars.compilercourse.parser.nodes.Primary
@@ -86,7 +84,7 @@ fun WasmStructureGenerator.genUnaryModifiablePrimary(
                 result.add(F64Binary(F64BinOp.Sub))
             }
         }
-        is StackValue.ObjReference -> {
+        is StackValue.CellAddress -> {
             throw CodegenException()
         }
     }
@@ -96,59 +94,22 @@ fun WasmStructureGenerator.genUnaryModifiablePrimary(
     )
 }
 
-// Put the value of modifiable primary (i.e. variable) on stack
-// For primitive values, resolve the primitive value as well
+// For object, put the address of the object onto the stack
+// For primitives, put the value of primitive onto the stack
 fun WasmStructureGenerator.genModifiablePrimary(
     modifiablePrimary: ModifiablePrimary,
 ): GenExpressionResult {
+    val modifiablePrimaryResolveResult = resolveModifiablePrimary(modifiablePrimary)
     val result = mutableListOf<Instr>()
-    val variableDescription = declarationManager.getVariable(modifiablePrimary.variable.token.lexeme)
-    var codegenData = variableDescription.data
-
-    result.add(I32Const(variableDescription.address))
-    result.add(I32Load())
-    if (modifiablePrimary.accessors != null) {
-        for (accessor in modifiablePrimary.accessors) {
-            when (accessor) {
-                is ArrayAccessor -> {
-                    if (codegenData is CodegenData.Array) {
-                        result.addAll(genExpression(accessor.expression).instructions)
-                        result.add(I32Const(1))
-                        result.add(I32Binary(I32BinOp.Sub))
-                        result.add(I32Const(codegenData.elementsData.bytesSize))
-                        result.add(I32Binary(I32BinOp.Mul))
-
-                        codegenData = codegenData.elementsData
-                    } else {
-                        throw CodegenException()
-                    }
-                }
-                is FieldAccessor -> {
-                    if (codegenData is CodegenData.Record) {
-                        val neededFieldIndex = codegenData.fields.indexOfFirst { it.first == accessor.identifier.token.lexeme }
-                        for (i in 0..<neededFieldIndex) {
-                            result.add(I32Const(codegenData.fields[i].second.bytesSize))
-                            result.add(I32Binary(I32BinOp.Add))
-                        }
-
-                        codegenData = codegenData.fields[neededFieldIndex].second
-                    } else {
-                        throw CodegenException()
-                    }
-                }
-            }
-        }
-    }
-
-    if (codegenData is CodegenData.I32) {
-        result.add(I32Load())
-    }
-    if (codegenData is CodegenData.F64) {
-        result.add(F64Load())
+    result.addAll(modifiablePrimaryResolveResult.instructions)
+    when (modifiablePrimaryResolveResult.cellType) {
+        is CellType.I32 -> result.add(I32Load())
+        is CellType.F64 -> result.add(F64Load())
+        else -> result.add(I32Load())
     }
     return GenExpressionResult(
         instructions = result,
-        onStack = codegenData.toStackValue()
+        onStack = modifiablePrimaryResolveResult.cellType.toStackValue()
     )
 }
 

@@ -8,42 +8,64 @@ class DeclarationManager(private val memoryManager: MemoryManager) {
         val name: String,
         val orderIndex: Int,
         val returnValue: StackValue?, // null = empty stack when finished
+        val parameters: List<VariableDescription>,
     )
 
     data class VariableDescription(
         val name: String,
+        val cellType: CellType,
         val address: Int,
-        val data: CodegenData,
     )
 
-    data class TypeDescription(val name: String, val data: CodegenData)
+    data class TypeDescription(val name: String, val cellType: CellType)
 
     private val routines = mutableMapOf<String, RoutineDescription>()
     private val variables = mutableListOf<MutableMap<String, VariableDescription>>()
     private val types = mutableListOf<MutableMap<String, TypeDescription>>()
 
-    fun declareRoutine(name: String, returnValue: StackValue?) {
+    fun declareRoutine(name: String, returnValue: StackValue?, parameters: List<Pair<String, CellType>>) {
+        val paramsList = mutableListOf<VariableDescription>()
+        for ((name, cellType) in parameters) {
+            paramsList.add(
+                VariableDescription(
+                    name = name,
+                    cellType = cellType,
+                    address = memoryManager.getCurrentPointer()
+                )
+            )
+            memoryManager.advance(cellType.bytesSize)
+        }
         routines[name] = RoutineDescription(
             name = name,
             orderIndex = routines.size,
             returnValue = returnValue,
+            parameters = paramsList,
         )
     }
+
     fun getRoutineOrNull(name: String): RoutineDescription? {
         return routines[name]
     }
+
     fun getRoutine(name: String): RoutineDescription {
         return routines[name]!!
     }
 
-    fun declareVariable(name: String, data: CodegenData) {
+    fun declareFunctionVariables(name: String) {
+        for (variableDescription in routines[name]!!.parameters) {
+            variables.last()[variableDescription.name] = variableDescription
+        }
+    }
+
+    fun declareVariable(name: String, cellType: CellType) {
         variables.last()[name] = VariableDescription(
             name = name,
-            address = memoryManager.getCurrentPointer(),
-            data = data,
+            cellType = cellType,
+            address = memoryManager.getCurrentPointer()
         )
-        memoryManager.advance(data.bytesSize)
+        memoryManager.advance(cellType.bytesSize)
     }
+
     fun getVariable(name: String): VariableDescription {
         for (i in (variables.size - 1)..0) {
             return variables[i][name] ?: continue
@@ -51,14 +73,15 @@ class DeclarationManager(private val memoryManager: MemoryManager) {
         throw CodegenException()
     }
 
-    fun declareType(name: String, data: CodegenData) {
+    fun declareType(name: String, cellType: CellType) {
         types.last()[name] = TypeDescription(
             name = name,
-            data = data,
+            cellType = cellType,
         )
     }
+
     fun getType(name: String): TypeDescription {
-        for (i in types.size - 1 .. 0) {
+        for (i in types.size - 1..0) {
             return types[i][name] ?: continue
         }
         throw CodegenException()
