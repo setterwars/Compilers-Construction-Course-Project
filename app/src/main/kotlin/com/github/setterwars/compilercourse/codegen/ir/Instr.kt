@@ -47,12 +47,17 @@ data class F64Const(val value: Double) : Instr
 
 // Numeric operations
 enum class I32BinOp {
-    Add, Sub, Mul, DivS, DivU,
+    Add, Sub, Mul, DivS, DivU, RemS, RemU, And, Or, Xor
 }
 data class I32Binary(val op: I32BinOp) : Instr
 
+enum class I32UnaryOp {
+    EQZ
+}
+data class I32Unary(val op: I32UnaryOp) : Instr
+
 enum class F64BinOp {
-    Add, Sub, Mul, Div,
+    Add, Sub, Mul, Div
 }
 data class F64Binary(val op: F64BinOp) : Instr
 
@@ -65,7 +70,6 @@ enum class F64RelOp {
     Eq, Ne, Lt, Gt, Le, Ge,
 }
 data class F64Compare(val op: F64RelOp) : Instr
-
 
 // Memory
 data class I32Load(

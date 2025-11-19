@@ -1,5 +1,7 @@
 package com.github.setterwars.compilercourse.codegen.traverse
 
+import java.util.Stack
+
 // Literally what is stored in the memory
 sealed class CodegenData(val bytesSize: Int) {
     object I32 : CodegenData(bytesSize = 4)
@@ -16,7 +18,16 @@ sealed class CodegenData(val bytesSize: Int) {
     ) : CodegenData(fields.sumOf { it.second.bytesSize })
 }
 
-class CodegenVariable(
-    val address: Int,
-    val codegenData: CodegenData
-)
+// Used for expression parsing - what is on the stack after parsing expression
+sealed interface StackTopValue {
+    object I32 : StackTopValue // i32.const
+    object F64 : StackTopValue// f64.const
+}
+
+@JvmInline
+value class MemoryAddress(val address: Int)
+
+data class ObjReference( // internally also plain i32.const
+    val address: MemoryAddress,
+    val referencedCodegenData: CodegenData,
+) : StackTopValue, CodegenData(bytesSize = 4)
