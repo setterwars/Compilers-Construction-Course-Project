@@ -9,3 +9,8 @@ chmod +x ./scripts/run_all_tests.sh
 ```shell
 `./gradlew app:run --args="../tests/errors/Playground.txt --semantic"
 ```
+
+Запускаем компилятор:
+- `./gradlew app:run --args="../tests/worked/EuclideanDistanceInteger.txt --semantic"`
+- После запуска, будет сгенерирован файл `app/output/program.wasm`
+- Далее делаем с этим файлом что хотим (например, `node run.js` )

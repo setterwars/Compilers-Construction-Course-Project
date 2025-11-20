@@ -22,10 +22,10 @@ var result : real
 routine euclideanDistance(p1x: real, p1y: real, p2x: real, p2y: real) is
     var p1 : Point
     var p2 : Point
-    p1.x = p1x
-    p1.y = p1y
-    p2.x = p2x
-    p2.y = p2y
+    p1.x := p1x
+    p1.y := p1y
+    p2.x := p2x
+    p2.y := p2y
 
     var sqrt : array [1] real
     squareRoot((p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y), sqrt)

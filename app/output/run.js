@@ -6,9 +6,8 @@ const bytes = fs.readFileSync(wasmPath);
 
 (async () => {
     const { instance } = await WebAssembly.instantiate(bytes, {});
-    const { main, memory } = instance.exports;
-    main(2, 5);
-
+    const { euclideanDistance, memory } = instance.exports;
+    euclideanDistance(0, 0, 10, 10);
     console.log('euclideanDistance called successfully');
 
     const mem = new Uint8Array(memory.buffer);

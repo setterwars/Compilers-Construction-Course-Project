@@ -7,7 +7,8 @@ import com.github.setterwars.compilercourse.parser.nodes.SimpleDeclaration
 import com.github.setterwars.compilercourse.parser.nodes.Statement
 
 fun WasmStructureGenerator.genBody(body: Body): List<Instr> {
-    return buildList {
+    declarationManager.newScope()
+    val result = buildList {
         for (bodyElem in body.bodyElements) {
             when (bodyElem) {
                 is SimpleDeclaration -> genSimpleDeclaration(bodyElem)
@@ -15,4 +16,6 @@ fun WasmStructureGenerator.genBody(body: Body): List<Instr> {
             }
         }
     }
+    declarationManager.exitScope()
+    return result
 }

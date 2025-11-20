@@ -13,7 +13,6 @@ import com.github.setterwars.compilercourse.parser.nodes.RoutineDeclaration
 import com.github.setterwars.compilercourse.parser.nodes.SingleExpressionBody
 
 fun WasmStructureGenerator.genRoutineDeclaration(routineDeclaration: RoutineDeclaration): WasmFunc {
-    declarationManager.newScope()
     val returnValue: StackValue? = routineDeclaration.header.returnType?.let {
         resolveCellTypeFromType(it)
     }?.toStackValue()
@@ -50,7 +49,6 @@ fun WasmStructureGenerator.genRoutineDeclaration(routineDeclaration: RoutineDecl
     )
     declarationManager.declareFunctionVariables(routineName)
     val body = genRoutineBody(routineDeclaration.body!!) // TODO: add support for forward declaration
-    declarationManager.exitScope()
     return WasmFunc(
         type = functionType,
         locals = emptyList(),
