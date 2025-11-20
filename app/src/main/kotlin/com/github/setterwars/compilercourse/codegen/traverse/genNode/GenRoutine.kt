@@ -31,13 +31,13 @@ fun WasmStructureGenerator.genRoutineDeclaration(routineDeclaration: RoutineDecl
 
     }
     // Determine function type
-    val wasmParams: List<ValueType> = routineDeclaration.header.parameters.parameters.map {
-        val resolvedData = resolveCellTypeFromType(it.type).toStackValue()
-        when (resolvedData) {
-            is StackValue.I32, is StackValue.CellAddress -> ValueType.I32
-            is StackValue.F64 -> ValueType.F64
-        }
-    }
+//    val wasmParams: List<ValueType> = routineDeclaration.header.parameters.parameters.map {
+//        val resolvedData = resolveCellTypeFromType(it.type).toStackValue()
+//        when (resolvedData) {
+//            is StackValue.I32, is StackValue.CellAddress -> ValueType.I32
+//            is StackValue.F64 -> ValueType.F64
+//        }
+//    }
     val result: ValueType? = returnValue?.let {
         when (it) {
             is StackValue.I32, is StackValue.CellAddress -> ValueType.I32
@@ -45,7 +45,7 @@ fun WasmStructureGenerator.genRoutineDeclaration(routineDeclaration: RoutineDecl
         }
     }
     val functionType = FuncType(
-        params = wasmParams,
+        params = emptyList(),
         results = result?.let { listOf(it) } ?: emptyList()
     )
     declarationManager.declareFunctionVariables(routineName)

@@ -64,7 +64,7 @@ fun WasmStructureGenerator.genRoutineCall(routineCall: RoutineCall): RoutineCall
     val rd = declarationManager.getRoutine(routineName)
     for ((i, vd) in rd.parameters.withIndex()) {
         result.add(I32Const(vd.address))
-        assignExpressionToAddressOnStack(vd.cellType, routineCall.arguments[i].expression)
+        result.addAll(assignExpressionToAddressOnStack(vd.cellType, routineCall.arguments[i].expression))
     }
     result.add(Call(rd.orderIndex))
     return RoutineCallResult(

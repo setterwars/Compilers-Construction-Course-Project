@@ -1,14 +1,4 @@
-routine fibonacciRecursive(n: integer, result : array[] integer): integer is
-    if n <= 1 then
-        result[1] := 1
-    else
-        var result1 : array[1] integer
-        var result2 : array[1] integer
-        fibonacciRecursive(n - 1, result1)
-        fibonacciRecursive(n - 2, result2)
-        result[1] := result1[1] + result2[1]
-    end
-end
+x
 
 routine fibonacciIterative(n: integer, result : array[] integer): integer is
     if n <= 1 then

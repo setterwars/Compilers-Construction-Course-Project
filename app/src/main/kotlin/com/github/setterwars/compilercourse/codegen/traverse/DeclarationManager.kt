@@ -85,7 +85,7 @@ class DeclarationManager(private val memoryManager: MemoryManager) {
     }
 
     fun getType(name: String): TypeDescription {
-        for (i in types.size - 1..0) {
+        for (i in types.size - 1 downTo 0) {
             return types[i][name] ?: continue
         }
         throw CodegenException()

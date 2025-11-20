@@ -41,6 +41,11 @@ import com.github.setterwars.compilercourse.parser.nodes.UnaryModifiablePrimary
 import com.github.setterwars.compilercourse.parser.nodes.UnaryNot
 import com.github.setterwars.compilercourse.parser.nodes.UnaryReal
 import com.github.setterwars.compilercourse.parser.nodes.UnarySign
+import com.github.setterwars.compilercourse.semantic.BooleanValue
+import com.github.setterwars.compilercourse.semantic.IntValue
+import com.github.setterwars.compilercourse.semantic.RealValue
+import com.github.setterwars.compilercourse.semantic.extensionNodes.CalculatedPrimitiveValue
+import java.util.Stack
 
 data class GenExpressionResult(
     val instructions: List<Instr>,
@@ -79,12 +84,14 @@ fun WasmStructureGenerator.genUnaryModifiablePrimary(
                 result.add(I32Unary(I32UnaryOp.EQZ))
             }
         }
+
         is StackValue.F64 -> {
             if (unaryModifiablePrimary.unaryOperator == UnarySign.MINUS) {
                 result.add(0, F64Const(0.0))
                 result.add(F64Binary(F64BinOp.Sub))
             }
         }
+
         is StackValue.CellAddress -> {
             throw CodegenException()
         }
@@ -175,8 +182,29 @@ fun WasmStructureGenerator.genPrimary(primary: Primary): GenExpressionResult {
             )
         }
 
+        is CalculatedPrimitiveValue -> {
+            return genCalculatedPrimitiveValue(primary)
+        }
+
         else -> throw CodegenException()
     }
+}
+
+
+fun WasmStructureGenerator.genCalculatedPrimitiveValue(calculatedPrimitiveValue: CalculatedPrimitiveValue): GenExpressionResult {
+    val instr = when (calculatedPrimitiveValue.value) {
+        is IntValue -> I32Const(calculatedPrimitiveValue.value.value.toInt())
+        is RealValue -> F64Const(calculatedPrimitiveValue.value.value)
+        is BooleanValue -> I32Const(if (calculatedPrimitiveValue.value.value) 1 else 0)
+    }
+    val type = when (calculatedPrimitiveValue.value) {
+        is IntValue, is BooleanValue -> StackValue.I32
+        else -> StackValue.F64
+    }
+    return GenExpressionResult(
+        instructions = listOf(instr),
+        onStack = type,
+    )
 }
 
 // Calculate summand and put single value on stack
@@ -185,6 +213,7 @@ fun WasmStructureGenerator.genSummand(summand: Summand): GenExpressionResult {
         is ExpressionInParenthesis -> {
             genExpression(summand.expression)
         }
+
         is Primary -> {
             genPrimary(summand)
         }
@@ -210,18 +239,18 @@ fun WasmStructureGenerator.genFactor(factor: Factor): GenExpressionResult {
         when (summandGenResult.onStack) {
             StackValue.I32 -> {
                 val binOp = when (op) {
-                    FactorOperator.PRODUCT  -> I32BinOp.Mul
+                    FactorOperator.PRODUCT -> I32BinOp.Mul
                     FactorOperator.DIVISION -> I32BinOp.DivS
-                    FactorOperator.MODULO   -> I32BinOp.RemS
+                    FactorOperator.MODULO -> I32BinOp.RemS
                 }
                 instructions.add(I32Binary(binOp))
             }
 
             StackValue.F64 -> {
                 val binOp = when (op) {
-                    FactorOperator.PRODUCT  -> F64BinOp.Mul
+                    FactorOperator.PRODUCT -> F64BinOp.Mul
                     FactorOperator.DIVISION -> F64BinOp.Div
-                    FactorOperator.MODULO   -> throw CodegenException()
+                    FactorOperator.MODULO -> throw CodegenException()
                 }
                 instructions.add(F64Binary(binOp))
             }
@@ -254,7 +283,7 @@ fun WasmStructureGenerator.genSimple(simple: Simple): GenExpressionResult {
         when (factorGenResult.onStack) {
             StackValue.I32 -> {
                 val binOp = when (op) {
-                    SimpleOperator.PLUS  -> I32BinOp.Add
+                    SimpleOperator.PLUS -> I32BinOp.Add
                     SimpleOperator.MINUS -> I32BinOp.Sub
                 }
                 instructions.add(I32Binary(binOp))
@@ -262,7 +291,7 @@ fun WasmStructureGenerator.genSimple(simple: Simple): GenExpressionResult {
 
             StackValue.F64 -> {
                 val binOp = when (op) {
-                    SimpleOperator.PLUS  -> F64BinOp.Add
+                    SimpleOperator.PLUS -> F64BinOp.Add
                     SimpleOperator.MINUS -> F64BinOp.Sub
                 }
                 instructions.add(F64Binary(binOp))
@@ -295,11 +324,11 @@ fun WasmStructureGenerator.genRelation(relation: Relation): GenExpressionResult 
     when (simpleGenResult.onStack) {
         StackValue.I32 -> {
             val op = when (relation.comparison.first) {
-                RelationOperator.LT  -> I32RelOp.LtS
-                RelationOperator.LE  -> I32RelOp.LeS
-                RelationOperator.GT  -> I32RelOp.GtS
-                RelationOperator.GE  -> I32RelOp.GeS
-                RelationOperator.EQ  -> I32RelOp.Eq
+                RelationOperator.LT -> I32RelOp.LtS
+                RelationOperator.LE -> I32RelOp.LeS
+                RelationOperator.GT -> I32RelOp.GtS
+                RelationOperator.GE -> I32RelOp.GeS
+                RelationOperator.EQ -> I32RelOp.Eq
                 RelationOperator.NEQ -> I32RelOp.Ne
             }
             instructions.add(I32Compare(op))
@@ -307,11 +336,11 @@ fun WasmStructureGenerator.genRelation(relation: Relation): GenExpressionResult 
 
         StackValue.F64 -> {
             val op = when (relation.comparison.first) {
-                RelationOperator.LT  -> F64RelOp.Lt
-                RelationOperator.LE  -> F64RelOp.Le
-                RelationOperator.GT  -> F64RelOp.Gt
-                RelationOperator.GE  -> F64RelOp.Ge
-                RelationOperator.EQ  -> F64RelOp.Eq
+                RelationOperator.LT -> F64RelOp.Lt
+                RelationOperator.LE -> F64RelOp.Le
+                RelationOperator.GT -> F64RelOp.Gt
+                RelationOperator.GE -> F64RelOp.Ge
+                RelationOperator.EQ -> F64RelOp.Eq
                 RelationOperator.NEQ -> F64RelOp.Ne
             }
             instructions.add(F64Compare(op))

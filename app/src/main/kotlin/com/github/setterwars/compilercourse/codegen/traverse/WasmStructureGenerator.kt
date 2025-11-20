@@ -1,10 +1,15 @@
 package com.github.setterwars.compilercourse.codegen.traverse
 
+import com.github.setterwars.compilercourse.codegen.ir.Call
 import com.github.setterwars.compilercourse.codegen.ir.ExportKind
+import com.github.setterwars.compilercourse.codegen.ir.F64Store
 import com.github.setterwars.compilercourse.codegen.ir.FuncType
 import com.github.setterwars.compilercourse.codegen.ir.I32Const
 import com.github.setterwars.compilercourse.codegen.ir.I32Load
+import com.github.setterwars.compilercourse.codegen.ir.I32Store
 import com.github.setterwars.compilercourse.codegen.ir.Instr
+import com.github.setterwars.compilercourse.codegen.ir.LocalGet
+import com.github.setterwars.compilercourse.codegen.ir.ValueType
 import com.github.setterwars.compilercourse.codegen.ir.WasmDefinition
 import com.github.setterwars.compilercourse.codegen.ir.WasmExport
 import com.github.setterwars.compilercourse.codegen.ir.WasmFunc
@@ -36,12 +41,37 @@ class WasmStructureGenerator(val semanticInfoStore: SemanticInfoStore) {
                 genSimpleDeclaration(declaration)
             }
         }
-        for (routine in declarationManager.routines.values) {
+        for ((idx, routine) in declarationManager.routines.values.withIndex()) {
+            val params = mutableListOf<ValueType>()
+            val instructions = mutableListOf<Instr>()
+            for ((paramIdx, param) in routine.parameters.withIndex()) {
+                when (param.cellType) {
+                    is CellType.I32 -> params.add(ValueType.I32)
+                    is CellType.F64 -> params.add(ValueType.F64)
+                    else -> params.add(ValueType.I32)
+                }
+
+                instructions.add(I32Const(param.address))
+                instructions.add(LocalGet(paramIdx))
+                when (params.last()) {
+                    ValueType.I32 -> instructions.add(I32Store())
+                    ValueType.F64 -> instructions.add(F64Store())
+                }
+            }
+            instructions.add(Call(routine.orderIndex))
+            wasmDefinitions.add(
+                WasmFunc(
+                    type = FuncType(params = params, results = emptyList()),
+                    locals = emptyList(),
+                    body = instructions,
+                    name = "_${routine.name}_launcher",
+                )
+            )
             wasmDefinitions.add(
                 WasmExport(
                     name = routine.name,
                     kind = ExportKind.Func,
-                    index = routine.orderIndex
+                    index = declarationManager.routines.size + idx
                 )
             )
         }
@@ -51,13 +81,13 @@ class WasmStructureGenerator(val semanticInfoStore: SemanticInfoStore) {
             if (vd.cellType is CellType.ArrayReference) {
                 fillAddressInstructions.add(I32Const(vd.address))
                 fillAddressInstructions.add(I32Const(memoryManager.getCurrentPointer()))
-                fillAddressInstructions.add(I32Load())
+                fillAddressInstructions.add(I32Store())
                 memoryManager.advance(vd.cellType.memArray.count * vd.cellType.memArray.cellType.bytesSize)
             }
             if (vd.cellType is CellType.RecordReference) {
                 fillAddressInstructions.add(I32Const(vd.address))
                 fillAddressInstructions.add(I32Const(memoryManager.getCurrentPointer()))
-                fillAddressInstructions.add(I32Load())
+                fillAddressInstructions.add(I32Store())
                 memoryManager.advance(vd.cellType.memRecord.fields.sumOf { it.second.bytesSize })
             }
         }
@@ -69,6 +99,7 @@ class WasmStructureGenerator(val semanticInfoStore: SemanticInfoStore) {
             isStart = true
         )
         wasmDefinitions.add(mainFunction)
+        wasmDefinitions.add(WasmExport("memory", ExportKind.Memory, 0))
         return WasmModule(definitions = wasmDefinitions)
     }
 }

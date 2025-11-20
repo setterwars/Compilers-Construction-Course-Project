@@ -37,6 +37,7 @@ fun WasmStructureGenerator.resolveModifiablePrimary(modifiablePrimary: Modifiabl
                         result.add(I32Binary(I32BinOp.Sub))
                         result.add(I32Const(currentCellType.memArray.cellType.bytesSize))
                         result.add(I32Binary(I32BinOp.Mul))
+                        result.add(I32Binary(I32BinOp.Add))
 
                         currentCellType = currentCellType.memArray.cellType
                     } else {
