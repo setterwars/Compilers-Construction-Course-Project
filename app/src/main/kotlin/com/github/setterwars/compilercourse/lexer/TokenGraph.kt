@@ -80,6 +80,10 @@ private val ROOT = graph(rootNode = "root") {
     node("rparen", TokenType.RPAREN, 1)
     edge("root", "rparen") { c -> c == ')' }
 
+    node("whitespace", TokenType.WHITESPACE, priority = 1)
+    edge("root", "whitespace") { c -> c.isWhitespace() && c != '\n' }
+    edge("whitespace", "whitespace") { c -> c.isWhitespace() && c != '\n'}
+
     node("dot1")
     node("range", TokenType.RANGE, 1)
     edge("root", "dot1") { c -> c == '.' }
@@ -90,9 +94,6 @@ private val ROOT = graph(rootNode = "root") {
 
     node("arrow", TokenType.ARROW, 1)
     edge("eq", "arrow") { c -> c == '>' }
-
-//    node("semicolon", TokenType.SEMICOLON, 1)
-//    edge("root", "semicolon") { c -> c == ';' }
 
     // relational operators
     node("lt", TokenType.LT, 1)
@@ -170,6 +171,7 @@ private val ROOT = graph(rootNode = "root") {
     keyword("print", TokenType.PRINT)
     keyword("routine", TokenType.ROUTINE)
     keyword("not", TokenType.NOT)
+    keyword("return", TokenType.RETURN)
 
     // --- layout ---
     node("newline", TokenType.NEW_LINE, 1)
@@ -185,33 +187,47 @@ class TokenGraph {
         currentNodes = setOf(ROOT)
     }
 
-    fun feed(c: Char?): Pair<TokenType?, String?>? { // null if cannot determine the token yet
+    private fun moveOnCharacter(c: Char): Set<Node> {
         val newNodes = mutableSetOf<Node>()
-        if (c != null) {
-            for (node in currentNodes) {
-                for (transition in node.transitions) {
-                    if (transition.first.canGo(c)) {
-                        newNodes.add(transition.second)
-                    }
+        for (node in currentNodes) {
+            for (transition in node.transitions) {
+                if (transition.first.canGo(c)) {
+                    newNodes.add(transition.second)
                 }
             }
         }
-        if (newNodes.isEmpty()) {
-            var maxPriority = -1
-            var tokenType: TokenType? = null
-            for (node in currentNodes) {
-                if (node.tokenType != null && node.priority != null && node.priority > maxPriority) {
-                    tokenType = node.tokenType
-                    maxPriority = node.priority
-                }
+        return newNodes
+    }
+
+    // The current set of nodes contain at least one valid edge along character `c`
+    fun canExpandOnCharacter(c: Char): Boolean {
+        return moveOnCharacter(c).isNotEmpty()
+    }
+
+    // Find the node with non-null token type and max priority
+    // Returns `null` is non of the current nodes are accepting
+    fun determine(): Pair<TokenType, String>? {
+        var maxPriority = -1
+        var tokenType: TokenType? = null
+        for (node in currentNodes) {
+            if (node.tokenType != null && node.priority != null && node.priority > maxPriority) {
+                tokenType = node.tokenType
+                maxPriority = node.priority
             }
-            val lexeme = currentStack.joinToString("")
+        }
+        val lexeme = currentStack.joinToString("")
+        return tokenType?.let { it to lexeme }
+    }
+
+    // Expand the current character set along the character c
+    // If the expansion failed, then reset to the ROOT node
+    fun feed(c: Char) {
+        val newNodes = moveOnCharacter(c)
+        if (newNodes.isEmpty()) {
             reset()
-            return tokenType to lexeme
         } else {
-            currentStack.add(c!!)
+            currentStack.add(c)
             currentNodes = newNodes
-            return null
         }
     }
 }

@@ -14,78 +14,72 @@ class Lexer(
 
     val tokenGraph = TokenGraph()
 
-    private var currentLine = 0
-    private var currentColumn = 0
+    private var currentCursorPosition: CursorPosition = CursorPosition(0, 0)
+    private var previousCursorPosition: CursorPosition = currentCursorPosition
     private var currentSymbol: Char? = null
-    private var isCurrentSymbolProcessed = true
-    private var wasEndBefore = false
 
-    private fun markCurrentSymbolAsProcessed() {
-        isCurrentSymbolProcessed = true
-        if (currentSymbol == '\n') {
-            currentLine++
-            currentColumn = 0
-        } else {
-            currentColumn++
+    private fun getNextSymbol() {
+        currentSymbol = reader.read().let { if (it == -1) null else Char(it) }?.also { c ->
+            previousCursorPosition = currentCursorPosition
+            currentCursorPosition = if (c == '\n') {
+                CursorPosition(line = currentCursorPosition.line + 1, column = 0)
+            } else {
+                CursorPosition(line = currentCursorPosition.line, column = currentCursorPosition.column + 1)
+            }
         }
     }
 
-    private fun getCurrentSymbol(): Char? { // null if EOF reached
-        if (isCurrentSymbolProcessed) {
-            isCurrentSymbolProcessed = false
-            currentSymbol = reader.read().let { if (it == -1) null else Char(it) }
-        }
-        return currentSymbol
-    }
-
+    private var currentSymbolIsProcessedFlag = true
+    private var reachedEofBefore = false
     fun nextToken(): Token {
+        val begin = if (currentSymbolIsProcessedFlag) currentCursorPosition else previousCursorPosition
+
         while (true) {
-            // Получаем текущий символ
-            val c = getCurrentSymbol()
-            if (c == null) {
-                if (wasEndBefore) {
-                    // Граф уже кушал EOF, значит теперь всегда просто возвращаем EOF
+            if (currentSymbolIsProcessedFlag) {
+                getNextSymbol()
+            }
+            val c = currentSymbol
+            if (c == null) { // EOF reached
+                if (!reachedEofBefore) {
+                    reachedEofBefore = true
+                    val result = tokenGraph.determine() ?: throw LexerException(
+                        message = "Cannot determine token in ${Span(begin, currentCursorPosition)}",
+                    )
                     return Token(
-                        tokenType = TokenType.EOF,
-                        span = Span(line = currentLine, firstColumn = currentColumn, lastColumn = currentColumn),
-                        lexeme = "<EOF>"
+                        tokenType = result.first,
+                        span = Span(begin, previousCursorPosition),
+                        lexeme = result.second,
                     )
                 }
-                // Иначе мы скормим графу EOF, и пометим во флаге, что мы это сделали
-                wasEndBefore = true
-            }
-            val result = tokenGraph.feed(c)
-
-            // Если result null (то есть на данный момент нельзя точно определить токен),
-            // или граф подавился на каком-то пробеле (табе), то забиваем хрен и топаем дальше
-            if (result == null || (c != '\n' && c?.isWhitespace() == true && result.first == null || result.second == null)) {
-                markCurrentSymbolAsProcessed()
-            } else {
-                val (tokenType, lexeme) = result
-                val span = Span(
-                    line = currentLine,
-                    firstColumn = (currentColumn - (lexeme?.length
-                        ?: 0)).coerceAtLeast(0), // TODO: добавить нормальное расположение new line-ов
-                    lastColumn = (currentColumn - 1).coerceAtLeast(0),
+                return Token(
+                    tokenType = TokenType.EOF,
+                    span = Span(begin, currentCursorPosition),
+                    lexeme = "<EOF>"
                 )
-                // Если tokenType null, то граф подавился на этом символе (то есть граф не смог отыскать ни одного
-                // подходящего токена) и текущий символ (c) - не пробельный. Значит программа херня и мы кидаем ошибку
-                if (tokenType == null || lexeme == null) {
+            }
+
+            var returnToken: Token? = null
+            if (!tokenGraph.canExpandOnCharacter(c)) {
+                val result = tokenGraph.determine()
+                val span = Span(begin, previousCursorPosition)
+                if (result == null) {
                     throw LexerException(
-                        message = "Cannot parse lexeme $lexeme from column ${span.firstColumn} to ${span.lastColumn} on line ${span.line}",
+                        message = "Cannot determine token in $span",
                         span = span
                     )
                 }
-
-                // Ну и наконец, мы нашли верный токен - возвращаем его
-                if (tokenType != null && lexeme != null) {
-                    return Token(
-                        tokenType = tokenType,
-                        span = span,
-                        lexeme = lexeme
-                    )
-                }
+                returnToken = Token(
+                    tokenType = result.first,
+                    span = span,
+                    lexeme = result.second,
+                )
+                tokenGraph.feed(c) // reset
+                currentSymbolIsProcessedFlag = false
+            } else {
+                tokenGraph.feed(c)
+                currentSymbolIsProcessedFlag = true
             }
+            returnToken?.let { return it }
         }
     }
 

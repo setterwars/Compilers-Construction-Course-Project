@@ -1,18 +1,13 @@
-var result : integer
-
 type Point is record
-    var x: integer
-    var y: integer
+    var x: real
+    var y: real
 end
 
-routine squareRoot(a: integer, sqrt: array[1] integer) is
-    var low : integer
-    var high : integer
-    low := 0
-    high := 10000
-    while low + 1 < high loop
-        var mid : integer
-        mid := (low + high) / 2
+routine squareRoot(a: real, sqrt: array[1] real) is
+    var low : real is 0.0
+    var high : real is 1000000000.0
+    while low + 1.0 < high loop
+        var mid : real is (low + high) / 2
         if mid * mid <= a then
             low := mid
         else
@@ -22,7 +17,9 @@ routine squareRoot(a: integer, sqrt: array[1] integer) is
     sqrt[1] := low
 end
 
-routine euclideanDistance(p1x: integer, p1y: integer, p2x: integer, p2y: integer) is
+var result : real
+
+routine euclideanDistance(p1x: real, p1y: real, p2x: real, p2y: real) is
     var p1 : Point
     var p2 : Point
     p1.x := p1x
@@ -30,7 +27,7 @@ routine euclideanDistance(p1x: integer, p1y: integer, p2x: integer, p2y: integer
     p2.x := p2x
     p2.y := p2y
 
-    var sqrt : array [1] integer
+    var sqrt : array [1] real
     squareRoot((p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y), sqrt)
     result := sqrt[1]
 end

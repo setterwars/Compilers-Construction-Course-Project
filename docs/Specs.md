@@ -40,6 +40,7 @@ Statement
   | ForLoop
   | IfStatement
   | PrintStatement
+  | ReturnStatement
 
 Assignment
   : ModifiablePrimary := Expression
@@ -61,6 +62,9 @@ IfStatement
 
 PrintStatement
   : print Expression { , Expression }
+  
+ReturnStatement
+  : return [ Expression ]
 ```
 ```
 RoutineDeclaration
@@ -114,3 +118,36 @@ ModifiablePrimary
   : Identifier { . Identifier | [ Expression ] }
   
  ```
+
+## Notes:
+### Variadic functions and variable-sized arrays
+Variadic functions are implemented by adding two special parameters to the
+of the parameter list:
+- The second-to-last `integer` parameter denotes the number of variadic parameters
+- The last `array [] <type>` is a variadic parameter
+
+Moreover, this is the only place where the variable-sized array type can be used
+
+**Example:**
+```
+routine foo(a: real, count: integer, points: array [] Point) is 
+    ...
+end
+```
+
+### Calling a function that contains record or array 
+Since records and arrays are represented as pointers of type i32, one 
+can theoretically invoke a function that contains records or arrays
+in parameter list as the main function of a compiled program by passing plain integers:
+```
+type Point is record
+    var x: integer
+    var y: integer
+end
+routine main(a: array[5] Point, b: Point)
+```
+```
+wasmtime program.wasm --invoke main 90 605
+```
+
+

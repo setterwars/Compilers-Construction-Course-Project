@@ -26,3 +26,7 @@ routine r6(a: integer, b: integer) is
 end
 
 routine r7(a: integer, b: integer): boolean => (a < b) or (a = b)
+
+routine r8(): integer is
+    return 100
+end

@@ -1,16 +1,27 @@
 package com.github.setterwars.compilercourse.lexer
 
+data class CursorPosition(val line: Int, val column: Int)
+
 data class Span(
-    val line: Int,
-    val firstColumn: Int,
-    val lastColumn: Int,
-)
+    val begin: CursorPosition,
+    val end: CursorPosition,
+) {
+    val line = begin.line
+}
 
 data class Token(
     val tokenType: TokenType,
     val span: Span,
     val lexeme: String,
-)
+) {
+    private fun String.normalize() = this
+        .replace("\n", "\\n")
+        .replace("\t", "\\t")
+
+    override fun toString(): String {
+        return "Token(tokenType=$tokenType, span=$span, lexeme=\"${lexeme.normalize()}\")"
+    }
+}
 
 enum class TokenType {
     // literals
@@ -30,7 +41,6 @@ enum class TokenType {
     RPAREN, // )
     RANGE, // ..
     ARROW, // =>
-    SEMICOLON, // ;
     AND, // and
     OR, // or
     XOR, // xor
@@ -46,6 +56,7 @@ enum class TokenType {
     SLASH, // /
     PERCENT, // %
     DOT, // .
+    WHITESPACE, // all consecutive space symbols (except new lines) are collapsed into a single WHITESPACE token
 
     // keywords
     VAR,
@@ -68,6 +79,7 @@ enum class TokenType {
     PRINT,
     ROUTINE,
     NOT,
+    RETURN,
 
     // layout
     NEW_LINE, EOF,
