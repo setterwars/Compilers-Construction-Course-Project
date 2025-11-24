@@ -7,6 +7,7 @@ import com.github.setterwars.compilercourse.parser.nodes.ForLoop
 import com.github.setterwars.compilercourse.parser.nodes.IfStatement
 import com.github.setterwars.compilercourse.parser.nodes.PrintStatement
 import com.github.setterwars.compilercourse.parser.nodes.Range
+import com.github.setterwars.compilercourse.parser.nodes.ReturnStatement
 import com.github.setterwars.compilercourse.parser.nodes.RoutineCall
 import com.github.setterwars.compilercourse.parser.nodes.RoutineCallArgument
 import com.github.setterwars.compilercourse.parser.nodes.Statement
@@ -24,6 +25,7 @@ internal fun Parser.parseStatement(index: Int): Result<ParseResult<Statement>> {
                     ::parseForLoop,
                     ::parseIfStatement,
                     ::parsePrintStatement,
+                    ::parseReturnStatement,
                 ),
                 false
             )
@@ -240,6 +242,21 @@ internal fun Parser.parsePrintStatement(index: Int): Result<ParseResult<PrintSta
         result = PrintStatement(
             expression = firstExpressionParseResult.result,
             rest = restExpressionsParseResult.map { it.result },
+        )
+    ).wrapToResult()
+}
+
+internal fun Parser.parseReturnStatement(index: Int): Result<ParseResult<ReturnStatement>> {
+    val nextIndex = takeToken(index, TokenType.RETURN).getOrElse {
+        return Result.failure(it)
+    }
+    val expressionParseResult = parseExpression(nextIndex).getOrElse {
+        return Result.failure(it)
+    }
+    return ParseResult(
+        nextIndex = expressionParseResult.nextIndex,
+        result = ReturnStatement(
+            expression = expressionParseResult.result,
         )
     ).wrapToResult()
 }

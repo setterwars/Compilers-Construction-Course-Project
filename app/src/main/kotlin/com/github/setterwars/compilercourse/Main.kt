@@ -3,6 +3,7 @@ package com.github.setterwars.compilercourse
 import com.github.setterwars.compilercourse.lexer.Lexer
 import com.github.setterwars.compilercourse.lexer.Token
 import com.github.setterwars.compilercourse.lexer.TokenType
+import com.github.setterwars.compilercourse.parser.Parser
 import java.io.File
 import java.io.FileReader
 
@@ -21,10 +22,9 @@ fun main(args: Array<String>) {
         tokens.add(token)
         if (token.tokenType == TokenType.EOF) break
     }
-    println(tokens.joinToString("\n"))
-//    val parser = Parser(tokens)
-//    val program = parser.parse()
-//    println("OK! Found ${program.declarations.size} declarations in $sourcePath program")
+    val parser = Parser(tokens)
+    val program = parser.parse()
+    println("OK! Found ${program.declarations.size} declarations in $sourcePath program")
 //
 //    if (enableSemantic) {
 //        val analyzer = SemanticAnalyzer()

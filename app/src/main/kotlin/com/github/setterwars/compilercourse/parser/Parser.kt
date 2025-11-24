@@ -8,7 +8,7 @@ import kotlin.random.Random
 class Parser(internal val tokens: List<Token>) {
     fun parse(): Program {
         val parseResult = parseProgram(0).getOrThrow()
-        val indexAfterStop = tokens.getOrNull(skipNewLines(parseResult.nextIndex))?.tokenType
+        val indexAfterStop = tokens.getOrNull(skipWhitespaces(parseResult.nextIndex))?.tokenType
         if (indexAfterStop == TokenType.EOF) {
             return parseResult.result
         } else {
@@ -48,7 +48,7 @@ class Parser(internal val tokens: List<Token>) {
         tokenTypes: List<TokenType>,
         transform: (Token) -> T?,
     ): Result<ParseResult<T>> {
-        val currentIndex = skipNewLines(index)
+        val currentIndex = skipWhitespaces(index)
 
         tokenTypes.forEach { tokenType ->
             getToken(currentIndex)?.takeIf { it.tokenType == tokenType }?.let {
@@ -138,7 +138,7 @@ class Parser(internal val tokens: List<Token>) {
     }
 
     internal fun takeToken(index: Int, tokenType: TokenType): Result<Int> {
-        val startIndex = skipNewLines(index)
+        val startIndex = skipWhitespaces(index)
         val token = getToken(startIndex)
         if (token?.tokenType == tokenType) {
             return Result.success(startIndex + 1)
@@ -185,9 +185,15 @@ class Parser(internal val tokens: List<Token>) {
         return parseAnyTokenOf(index, listOf(tokenType), transform)
     }
 
-    internal fun skipNewLines(index: Int): Int {
+    internal fun skipWhitespaces(index: Int): Int {
         var currentIndex = index
-        while (currentIndex < tokens.size && getToken(currentIndex)?.tokenType == TokenType.NEW_LINE) {
+        while (
+            currentIndex < tokens.size &&
+            getToken(currentIndex)?.tokenType in setOf(
+                TokenType.NEW_LINE,
+                TokenType.WHITESPACE
+            )
+        ) {
             currentIndex++
         }
         return currentIndex

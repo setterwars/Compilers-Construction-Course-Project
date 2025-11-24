@@ -43,3 +43,7 @@ data class PrintStatement(
     val expression: Expression,
     val rest: List<Expression>,
 ) : Statement
+
+data class ReturnStatement(
+    val expression: Expression,
+) : Statement

@@ -27,6 +27,6 @@ end
 
 routine r7(a: integer, b: integer): boolean => (a < b) or (a = b)
 
-routine r8(): integer is
+routine r8(count: integer, arr: array [] real): integer is
     return 100
 end
