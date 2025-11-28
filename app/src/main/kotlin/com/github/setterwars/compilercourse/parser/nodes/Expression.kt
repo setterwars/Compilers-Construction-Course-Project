@@ -5,7 +5,7 @@ import com.github.setterwars.compilercourse.lexer.Token
 data class Expression(
     val relation: Relation,
     val rest: List<Pair<ExpressionOperator, Relation>>?,
-)
+) : AstNode()
 enum class ExpressionOperator { AND, OR, XOR }
 
 data class Relation(

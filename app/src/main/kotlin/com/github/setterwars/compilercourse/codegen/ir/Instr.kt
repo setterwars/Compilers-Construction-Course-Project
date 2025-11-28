@@ -7,17 +7,17 @@ object Unreachable : Instr
 object Nop : Instr
 
 data class Block(
-    val resultType: ValueType?, // null = no result
+    val resultType: WasmValue?, // null = no result
     val instructions: List<Instr>,
 ) : Instr
 
 data class Loop(
-    val resultType: ValueType?,
+    val resultType: WasmValue?,
     val instructions: List<Instr>,
 ) : Instr
 
 data class If(
-    val resultType: ValueType?,
+    val resultType: WasmValue?,
     val thenInstrs: List<Instr>,
     val elseInstrs: List<Instr> = emptyList(),
 ) : Instr
@@ -70,6 +70,7 @@ enum class F64RelOp {
 }
 data class F64Compare(val op: F64RelOp) : Instr
 
+object I32ToF64S : Instr
 
 // Globals
 data class GlobalGet(val index: Int) : Instr

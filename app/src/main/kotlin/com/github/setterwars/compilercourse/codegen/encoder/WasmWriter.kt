@@ -32,7 +32,7 @@ import com.github.setterwars.compilercourse.codegen.ir.Loop
 import com.github.setterwars.compilercourse.codegen.ir.Nop
 import com.github.setterwars.compilercourse.codegen.ir.Return
 import com.github.setterwars.compilercourse.codegen.ir.Unreachable
-import com.github.setterwars.compilercourse.codegen.ir.ValueType
+import com.github.setterwars.compilercourse.codegen.ir.WasmValue
 
 class WasmWriter {
     private val buf = mutableListOf<Byte>()
@@ -96,15 +96,15 @@ class WasmWriter {
         writeRaw(bytes)
     }
 
-    fun writeValType(type: ValueType) {
+    fun writeValType(type: WasmValue) {
         val code = when (type) {
-            ValueType.I32 -> 0x7F
-            ValueType.F64 -> 0x7C
+            WasmValue.I32 -> 0x7F
+            WasmValue.F64 -> 0x7C
         }
         u8(code)
     }
 
-    fun writeBlockType(type: ValueType?) {
+    fun writeBlockType(type: WasmValue?) {
         if (type == null) {
             u8(0x40) // block with no result
         } else {

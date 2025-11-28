@@ -2,7 +2,7 @@ package com.github.setterwars.compilercourse.codegen.encoder
 
 import com.github.setterwars.compilercourse.codegen.ir.ExportKind
 import com.github.setterwars.compilercourse.codegen.ir.FuncType
-import com.github.setterwars.compilercourse.codegen.ir.ValueType
+import com.github.setterwars.compilercourse.codegen.ir.WasmValue
 import com.github.setterwars.compilercourse.codegen.ir.WasmExport
 import com.github.setterwars.compilercourse.codegen.ir.WasmFunc
 import com.github.setterwars.compilercourse.codegen.ir.WasmMemory
@@ -96,7 +96,7 @@ object WasmEncoder {
                     val bodyWriter = WasmWriter()
 
                     // locals (non-params), grouped by type to match Wasm's local decl form
-                    val localGroups = mutableListOf<Pair<ValueType, Int>>()
+                    val localGroups = mutableListOf<Pair<WasmValue, Int>>()
                     for (localType in fn.locals) {
                         if (localGroups.isNotEmpty() &&
                             localGroups.last().first == localType

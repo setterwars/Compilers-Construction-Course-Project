@@ -3,19 +3,19 @@ package com.github.setterwars.compilercourse.codegen.ir
 // For simplicity, we are NOT using globals or tables
 sealed interface WasmDefinition
 
-enum class ValueType {
+enum class WasmValue {
     I32,
     F64,
 }
 
 data class FuncType(
-    val params: List<ValueType>,
-    val results: List<ValueType>,
+    val params: List<WasmValue>,
+    val results: List<WasmValue>,
 )
 
 data class WasmFunc(
     val type: FuncType,
-    val locals: List<ValueType>,
+    val locals: List<WasmValue>,
     val body: List<Instr>,
     val name: String? = null,
     val isStart: Boolean = false,

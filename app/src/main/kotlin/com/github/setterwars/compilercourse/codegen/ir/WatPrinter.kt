@@ -1,8 +1,6 @@
 package com.github.setterwars.compilercourse.codegen.ir
 
 
-import com.github.setterwars.compilercourse.codegen.ir.*
-
 object WatPrinter {
 
     fun printModule(module: WasmModule): String {
@@ -253,9 +251,9 @@ object WatPrinter {
 
     // ---- Mapping helpers ----
 
-    private fun ValueType.toWat(): String = when (this) {
-        ValueType.I32 -> "i32"
-        ValueType.F64 -> "f64"
+    private fun WasmValue.toWat(): String = when (this) {
+        WasmValue.I32 -> "i32"
+        WasmValue.F64 -> "f64"
     }
 
     private fun I32BinOp.toWat(): String = when (this) {
