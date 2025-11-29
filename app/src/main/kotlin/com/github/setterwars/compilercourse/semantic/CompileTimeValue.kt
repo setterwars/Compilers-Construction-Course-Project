@@ -1,9 +1,9 @@
 package com.github.setterwars.compilercourse.semantic
 
-interface CompileTimeValue
+sealed interface CompileTimeValue
 
-data class CompileTimeInteger(val value: Int)
+data class CompileTimeInteger(val value: Int) : CompileTimeValue
 
-data class CompileTimeDouble(val value: Double)
+data class CompileTimeDouble(val value: Double) : CompileTimeValue
 
-data class CompileTimeBoolean(val value: Boolean)
+data class CompileTimeBoolean(val value: Boolean) : CompileTimeValue

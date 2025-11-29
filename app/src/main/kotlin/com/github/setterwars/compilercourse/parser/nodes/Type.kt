@@ -1,12 +1,14 @@
 package com.github.setterwars.compilercourse.parser.nodes
 
+import com.github.setterwars.compilercourse.semantic.semanticData.DeclaredTypeSemanticData
+
 sealed interface Type
 
 enum class PrimitiveType : Type { INTEGER, REAL, BOOLEAN }
 
 data class DeclaredType(
     val identifier: Identifier,
-) : Type
+) : Type, SemanticDataHolder<DeclaredTypeSemanticData>()
 
 sealed interface UserType : Type
 

@@ -1,11 +1,14 @@
 package com.github.setterwars.compilercourse.parser.nodes
 
 import com.github.setterwars.compilercourse.lexer.Token
+import com.github.setterwars.compilercourse.semantic.semanticData.ExpressionSemanticData
+import com.github.setterwars.compilercourse.semantic.semanticData.UnaryIntegerSemanticData
+import com.github.setterwars.compilercourse.semantic.semanticData.UnaryRealSemanticData
 
 data class Expression(
     val relation: Relation,
     val rest: List<Pair<ExpressionOperator, Relation>>?,
-) : AstNode()
+) : SemanticDataHolder<ExpressionSemanticData>()
 enum class ExpressionOperator { AND, OR, XOR }
 
 data class Relation(
@@ -37,12 +40,12 @@ interface Primary : Summand
 data class UnaryInteger(
     val unaryOperator: UnaryOperator?,
     val integerLiteral: IntegerLiteral,
-) : Primary
+) : Primary, SemanticDataHolder<UnaryIntegerSemanticData>()
 
 data class UnaryReal(
     val unaryRealOperator: UnaryRealOperator?,
     val realLiteral: RealLiteral,
-) : Primary
+) : Primary, SemanticDataHolder<UnaryRealSemanticData>()
 
 data class UnaryModifiablePrimary(
     val unaryOperator: UnaryOperator?,
@@ -56,7 +59,7 @@ data class ModifiablePrimary(
     val accessors: List<Accessor>?,
 )
 
-interface Accessor
+sealed interface Accessor
 
 data class FieldAccessor(
     val identifier: Identifier,
