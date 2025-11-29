@@ -57,7 +57,7 @@ enum class BooleanLiteral : Primary { TRUE, FALSE }
 
 data class ModifiablePrimary(
     val variable: Identifier,
-    val accessors: List<Accessor>?,
+    val accessors: List<Accessor>,
 ) : SemanticDataHolder<ModifiablePrimarySemanticData>()
 
 sealed interface Accessor

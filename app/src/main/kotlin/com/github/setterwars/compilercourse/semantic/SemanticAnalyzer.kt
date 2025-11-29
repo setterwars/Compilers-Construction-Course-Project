@@ -4,6 +4,9 @@ import com.github.setterwars.compilercourse.codegen.utils.toInt
 import com.github.setterwars.compilercourse.parser.nodes.*
 import com.github.setterwars.compilercourse.semantic.semanticData.DeclaredTypeSemanticData
 import com.github.setterwars.compilercourse.semantic.semanticData.ExpressionSemanticData
+import com.github.setterwars.compilercourse.semantic.semanticData.ModifiablePrimarySemanticData
+import com.github.setterwars.compilercourse.semantic.semanticData.RoutineDeclarationSemanticData
+import com.github.setterwars.compilercourse.semantic.semanticData.UnaryIntegerSemanticData
 import com.github.setterwars.compilercourse.semantic.semanticData.UnaryRealSemanticData
 
 class SemanticException(
@@ -39,7 +42,12 @@ class SemanticAnalyzer {
             throw SemanticException("Type '$name' already declared", td.identifier.token.span.line)
         }
         val resolved = analyzeType(td.type)
-        currentScope.declareType(name, td.type, resolved)
+        val typeNode = if (td.type !is DeclaredType) {
+            td.type
+        } else {
+            td.type.data!!.originalType
+        }
+        currentScope.declareType(name, typeNode, resolved)
     }
 
     private fun analyzeRoutineDeclaration(rd: RoutineDeclaration) {
@@ -52,12 +60,19 @@ class SemanticAnalyzer {
         val params = rd.header.parameters.parameters.withIndex().map { (index, pd) ->
             analyzeType(pd.type, isLastParamPosInFunctionArgs = (index + 1 == rd.header.parameters.parameters.size))
         }
-        if ((params.last() as? SemanticType.Array)?.size == null && params[params.size - 2] !is SemanticType.Integer) {
-            throw SemanticException("variadic")
+        rd.data = RoutineDeclarationSemanticData(isVariadic = false)
+        if (params.isNotEmpty()) {
+            val lastParam = params.last()
+            if (lastParam is SemanticType.Array && lastParam.size == null) {
+                if (params.size < 2 || params[params.size - 2] !is SemanticType.Integer) {
+                    throw SemanticException("variadic")
+                }
+                rd.data = RoutineDeclarationSemanticData(isVariadic = true)
+            }
         }
         val ret = header.returnType?.let { analyzeType(it) }
 
-        globalScope.declareRoutine(name, RoutineSymbol(params, ret, rd))
+        globalScope.declareRoutine(name, RoutineSymbol(params, ret, rd, variadic = rd.data?.isVariadic == true))
 
         // Body
         rd.body?.let { body ->
@@ -178,9 +193,6 @@ class SemanticAnalyzer {
             "Call to undeclared routine '$name'",
             call.routineName.token.span.line
         )
-        if (call.arguments.size != sym.parameterTypes.size) {
-            throw SemanticException("Wrong number of arguments for '$name'", call.routineName.token.span.line)
-        }
         if (sym.variadic) {
             for (i in 0 until sym.parameterTypes.size - 1) {
                 val at = analyzeExpression(call.arguments[i].expression).first
@@ -203,6 +215,9 @@ class SemanticAnalyzer {
                 }
             }
         } else {
+            if (call.arguments.size != sym.parameterTypes.size) {
+                throw SemanticException("Wrong number of arguments for '$name'", call.routineName.token.span.line)
+            }
             for (i in 0 until call.arguments.size) {
                 val at = analyzeExpression(call.arguments[i].expression).first
                 val pt = sym.parameterTypes[i]
@@ -218,8 +233,12 @@ class SemanticAnalyzer {
     }
 
     private fun analyzeWhileLoop(w: WhileLoop) {
-        analyzeExpression(w.condition)
-        val saved = currentScope; currentScope = SymbolTable(saved)
+        val (t, cv) = analyzeExpression(w.condition)
+        if (t !is SemanticType.Boolean) {
+            throw SemanticException()
+        }
+        val saved = currentScope
+        currentScope = SymbolTable(saved)
         analyzeBody(w.body)
         currentScope = saved
     }
@@ -318,7 +337,8 @@ class SemanticAnalyzer {
                     SimpleOperator.MINUS -> subConst(c, rc)
                 }
             } else null
-            t = outType; c = outConst
+            t = outType
+            c = outConst
         }
         return t to c
     }
@@ -344,7 +364,8 @@ class SemanticAnalyzer {
                     FactorOperator.MODULO -> modConst(c as CompileTimeInteger, rc as CompileTimeInteger)
                 }
             } else null
-            t = outType; c = outConst
+            t = outType
+            c = outConst
         }
         return t to c
     }
@@ -381,14 +402,10 @@ class SemanticAnalyzer {
         )
         val sRaw: Int = when (ui.unaryOperator) {
             null -> raw
-            is UnarySign -> {
-                if (ui.unaryOperator == UnarySign.MINUS) -raw else raw
-            }
-
-            is UnaryNot -> {
-                (raw == 0).toInt()
-            }
+            is UnarySign -> { if (ui.unaryOperator == UnarySign.MINUS) -raw else raw }
+            is UnaryNot -> { (raw == 0).toInt() }
         }
+        ui.data = UnaryIntegerSemanticData(sRaw)
         return CompileTimeInteger(sRaw)
     }
 
@@ -405,7 +422,7 @@ class SemanticAnalyzer {
     private fun analyzeUnaryModifiablePrimary(ump: UnaryModifiablePrimary): Pair<SemanticType, CompileTimeValue?> {
         val (bt, bcv) = analyzeModifiablePrimary(ump.modifiablePrimary)
         return when (ump.unaryOperator) {
-            null -> bt to null
+            null -> bt to bcv
             is UnaryNot -> {
                 if (bcv == null) {
                     check(bt is SemanticType.Integer || bt is SemanticType.Boolean)
@@ -445,7 +462,8 @@ class SemanticAnalyzer {
 
     private fun analyzeModifiablePrimary(mp: ModifiablePrimary): Pair<SemanticType, CompileTimeValue?> {
         var (t, cv) = analyzeVariable(mp.variable)
-        if (mp.accessors == null) {
+        if (mp.accessors.isEmpty()) {
+            mp.data = ModifiablePrimarySemanticData(cv)
             return t to cv
         }
         mp.accessors.forEach { t = analyzeAccessor(t, it) }
@@ -558,7 +576,7 @@ class SemanticAnalyzer {
     }
 
     private fun analyzeRange(r: Range) {
-        val (bt, bc) = analyzeExpression(r.begin)
+        val (bt, _) = analyzeExpression(r.begin)
         if (bt != SemanticType.Integer) {
             throw SemanticException("For-loop begin bound must be integer: $r")
         }
@@ -574,7 +592,6 @@ class SemanticAnalyzer {
     // Various stuff for primitive types
 
     private fun assignable(expected: SemanticType, actual: SemanticType): Boolean {
-
         if (isPrimitive(expected) && isPrimitive(actual)) {
             return !(expected is SemanticType.Boolean && actual is SemanticType.Real)
         }

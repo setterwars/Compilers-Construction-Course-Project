@@ -1,6 +1,5 @@
 package com.github.setterwars.compilercourse.codegen.bytecode.ir
 
-// For simplicity, we are NOT using globals or tables
 sealed interface WasmDefinition
 
 enum class WasmValue(val bytes: Int) {
@@ -31,7 +30,7 @@ data class WasmI32Global(
 data class WasmF64Global(
     val mutable: Boolean = false,
     val initValue: Double,
-)
+) : WasmGlobal
 
 data class WasmMemory(
     val minPages: Int,

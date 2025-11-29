@@ -165,6 +165,8 @@ object WatPrinter {
             is I32Compare -> sb.appendIndent(indent).appendLine(instr.op.toWat())
             is F64Compare -> sb.appendIndent(indent).appendLine(instr.op.toWat())
 
+            is I32ToF64S -> sb.appendIndent(indent).appendLine("f64.convert_i32_s")
+
             is GlobalGet -> sb.appendIndent(indent).append("global.get ").append(instr.index).appendLine()
             is GlobalSet -> sb.appendIndent(indent).append("global.set ").append(instr.index).appendLine()
 

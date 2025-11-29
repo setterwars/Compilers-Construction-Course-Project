@@ -16,6 +16,7 @@ class MemoryManager {
         const val FRAME_R_ADDR = FRAME_L_ADDR + 4
         const val RESERVED_F64_ADDR = FRAME_R_ADDR + 4
         const val RESERVED_I32_ADDR = RESERVED_F64_ADDR + 8
+        const val MEMORY_BEGIN = RESERVED_I32_ADDR + 4
 
         // Generate instructions that will put on the stack value of the offset relative to
         // the current value of frame L pointer

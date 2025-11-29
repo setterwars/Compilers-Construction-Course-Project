@@ -13,8 +13,6 @@ import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Unary
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32UnaryOp
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.Instr
 import com.github.setterwars.compilercourse.codegen.traverser.ast.modifiablePrimary.resolveModifiablePrimary
-import com.github.setterwars.compilercourse.codegen.traverser.cell.CellType
-import com.github.setterwars.compilercourse.codegen.traverser.common.DeclarationManager
 import com.github.setterwars.compilercourse.codegen.traverser.common.WasmContext
 import com.github.setterwars.compilercourse.codegen.utils.CodegenException
 import com.github.setterwars.compilercourse.parser.nodes.BooleanLiteral

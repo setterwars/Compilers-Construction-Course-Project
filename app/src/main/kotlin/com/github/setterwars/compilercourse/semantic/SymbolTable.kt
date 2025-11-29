@@ -52,7 +52,7 @@ data class RoutineSymbol(
     val parameterTypes: List<SemanticType>,
     val returnType: SemanticType?, // null = returns nothing
     val declaration: RoutineDeclaration? = null,
-    val variadic: Boolean = false,
+    val variadic: Boolean,
 )
 
 sealed interface SemanticType {

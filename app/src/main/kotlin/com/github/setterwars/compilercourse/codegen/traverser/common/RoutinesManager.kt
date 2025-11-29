@@ -5,7 +5,7 @@ import com.github.setterwars.compilercourse.codegen.traverser.cell.Routine
 import com.github.setterwars.compilercourse.codegen.utils.CodegenException
 
 class RoutinesManager {
-    private val routines = mutableMapOf<String, Routine>()
+    val routines = mutableMapOf<String, Routine>()
 
     // If the exact same routine was already declared - then skip it
     // Otherwise throw exception
@@ -19,6 +19,7 @@ class RoutinesManager {
             if (r.returnValueType != returnValueType && r.parameters != parameters) {
                 throw CodegenException()
             }
+
         }
         routines[name] = Routine(
             name = name,

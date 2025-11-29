@@ -1,0 +1,19 @@
+routine d(count: integer, arr: array [] integer) is
+    print arr[5]
+end
+
+var global: integer is 100
+
+type Point is record
+    var x : integer
+    var y : real
+end
+
+routine main() is
+    d(2, 2, 200, 109)
+    var p : Point
+    p.x = 10
+    p.y = 0.230
+    var local1 = (10 + 200) + (90.8 * 2) - global
+    var local2 = local1 + global
+end

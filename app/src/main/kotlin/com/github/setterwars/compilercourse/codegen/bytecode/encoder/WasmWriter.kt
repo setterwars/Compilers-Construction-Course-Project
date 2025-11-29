@@ -23,6 +23,7 @@ import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Const
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Load
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32RelOp
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Store
+import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32ToF64S
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.If
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.Instr
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.LocalGet
@@ -298,5 +299,8 @@ fun WasmWriter.writeInstr(instr: Instr) {
             u8(op)
         }
 
+        is I32ToF64S -> {
+            u8(0xB7) // f64.convert_i32_s
+        }
     }
 }

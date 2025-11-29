@@ -4,6 +4,8 @@ import com.github.setterwars.compilercourse.lexer.Lexer
 import com.github.setterwars.compilercourse.lexer.Token
 import com.github.setterwars.compilercourse.lexer.TokenType
 import com.github.setterwars.compilercourse.parser.Parser
+import com.github.setterwars.compilercourse.semantic.SemanticAnalyzer
+import com.github.setterwars.compilercourse.semantic.SemanticException
 import java.io.File
 import java.io.FileReader
 
@@ -25,6 +27,10 @@ fun main(args: Array<String>) {
     val parser = Parser(tokens)
     val program = parser.parse()
     println("OK! Found ${program.declarations.size} declarations in $sourcePath program")
+
+    val analyzer = SemanticAnalyzer()
+    analyzer.analyze(program)
+    return
 //
 //    if (enableSemantic) {
 //        val analyzer = SemanticAnalyzer()

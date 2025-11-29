@@ -6,7 +6,6 @@ import com.github.setterwars.compilercourse.codegen.traverser.ast.expression.res
 import com.github.setterwars.compilercourse.codegen.traverser.ast.type.resolveCellValueType
 import com.github.setterwars.compilercourse.codegen.traverser.cell.MemoryReferencable
 import com.github.setterwars.compilercourse.codegen.traverser.cell.store
-import com.github.setterwars.compilercourse.codegen.traverser.cell.toWasmValue
 import com.github.setterwars.compilercourse.codegen.traverser.common.MemoryManager
 import com.github.setterwars.compilercourse.codegen.traverser.common.WasmContext
 import com.github.setterwars.compilercourse.codegen.utils.name
