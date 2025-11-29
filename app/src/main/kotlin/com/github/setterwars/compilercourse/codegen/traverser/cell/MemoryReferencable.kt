@@ -1,6 +1,10 @@
 package com.github.setterwars.compilercourse.codegen.traverser.cell
 
-sealed interface MemoryReferencable
+import com.github.setterwars.compilercourse.codegen.bytecode.ir.Instr
+
+sealed interface MemoryReferencable {
+    val inMemoryBytesSize: Int
+}
 
 /**
  * Arrays are *always* stored in the memory
@@ -9,7 +13,10 @@ sealed interface MemoryReferencable
 data class InMemoryArray(
     val size: Int?,
     val cellValueType: CellValueType
-) : MemoryReferencable
+) : MemoryReferencable {
+    override val inMemoryBytesSize: Int
+        get() = size!! * cellValueType.toWasmValue().bytes
+}
 
 /**
  * Records are always stored in the memory
@@ -17,9 +24,17 @@ data class InMemoryArray(
  */
 data class InMemoryRecord(
     val fields: List<RecordField>,
+
+    // Initializer - put the address on stack and execute the instructions
+    // The record will contain instructions
+    // The address WILL BE removed from the stack
+    val initializer: List<Instr>?,
 ) : MemoryReferencable {
     data class RecordField(
         val name: String,
         val cellValueType: CellValueType,
     )
+
+    override val inMemoryBytesSize: Int
+        get() = fields.sumOf { it.cellValueType.toWasmValue().bytes }
 }

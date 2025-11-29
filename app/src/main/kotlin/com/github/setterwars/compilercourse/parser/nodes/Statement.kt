@@ -45,5 +45,5 @@ data class PrintStatement(
 ) : Statement
 
 data class ReturnStatement(
-    val expression: Expression,
+    val expression: Expression?,
 ) : Statement

@@ -1,26 +1,27 @@
 package com.github.setterwars.compilercourse.codegen.traverser.common
 
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.Block
-import com.github.setterwars.compilercourse.codegen.traverser.cell.CellType
 import com.github.setterwars.compilercourse.codegen.traverser.cell.CellValueType
+import com.github.setterwars.compilercourse.codegen.traverser.cell.Routine
 import com.github.setterwars.compilercourse.codegen.traverser.cell.Variable
-import com.github.setterwars.compilercourse.codegen.traverser.common.RoutinesManager.RoutineDescription
+import com.github.setterwars.compilercourse.codegen.traverser.cell.VariableType
+import com.github.setterwars.compilercourse.codegen.traverser.cell.toWasmValue
 import com.github.setterwars.compilercourse.codegen.utils.CodegenException
 
-class DeclarationManager(
-    private val memoryManager: MemoryManager,
-) {
-    private val globalEntitiesManager = GlobalEntitiesManager()
+class DeclarationManager {
+    private val globalVariablesManager = GlobalVariablesManager()
     private val scopes = mutableListOf<ScopedEntitiesManager>()
     private val routinesManager = RoutinesManager()
 
+    /** ---- SCOPES BEGIN ---- */
     var currentRoutine: String? = null
         private set
+    var currentRoutineFunctionPointer = 0
 
     fun inScope(): Boolean = currentRoutine != null
 
     fun enterScope() {
-        scopes.add(ScopedEntitiesManager(memoryManager))
+        scopes.add(ScopedEntitiesManager())
     }
 
     fun exitScope() {
@@ -31,13 +32,16 @@ class DeclarationManager(
         if (currentRoutine == null) {
             throw CodegenException()
         }
+        currentRoutineFunctionPointer = 0
         currentRoutine = name
     }
 
     fun exitRoutine() {
         currentRoutine = null
     }
+    /** ---- END OF SCOPES ---- */
 
+    /** ---- DECLARATION BEGIN ---- */
     fun declareGlobalVariable(
         name: String,
         cellValueType: CellValueType,
@@ -45,26 +49,21 @@ class DeclarationManager(
         if (currentRoutine != null) {
             throw CodegenException()
         }
-        globalEntitiesManager.declareGlobalVariable(name, cellValueType)
-    }
-
-    fun declareLocalVariable(name: String, cellValueType: CellValueType) {
-        scopes.last().declareScopedVariable(name, cellValueType)
+        globalVariablesManager.declareGlobalVariable(name, cellValueType)
     }
 
     fun addInitializerForGlobalVariable(name: String, initializer: Block) {
-        globalEntitiesManager.addInitializer(name, initializer)
+        globalVariablesManager.addInitializer(name, initializer)
+    }
+
+    fun declareLocalVariable(name: String, cellValueType: CellValueType) {
+        scopes.last().declareScopedVariable(name, cellValueType, currentRoutineFunctionPointer)
+        currentRoutineFunctionPointer += cellValueType.toWasmValue().bytes
     }
 
     fun resolveVariable(name: String): Variable {
         for (scope in scopes.reversed()) {
-            scope.getScopedVariable(name)?.let { scopedVariable ->
-                return Variable(
-                    name = name,
-                    cellType = CellType.MemoryCell(scopedVariable.memoryAddress),
-                    cellValueType = scopedVariable.cellValueType
-                )
-            }
+            scope.getScopedVariable(name)?.let { scopedVariable -> return scopedVariable }
         }
         currentRoutine?.let { routinesManager.getRoutine(it) }?.let { routineDescription ->
             routineDescription
@@ -75,32 +74,27 @@ class DeclarationManager(
                     val parameter = routineDescription.parameters[index]
                     return Variable(
                         name = name,
-                        cellType = CellType.LocalsCell(index),
                         cellValueType = parameter.cellValueType,
+                        variableType = VariableType.Local(index)
                     )
                 }
         }
-        globalEntitiesManager.getGlobalVariable(name)?.let { globalVariable ->
-            return Variable(
-                name = name,
-                cellType = CellType.GlobalsCell(globalVariable.index),
-                cellValueType = globalVariable.cellValueType
-            )
-        }
+        globalVariablesManager.getGlobalVariableOrNull(name)?.let { return it }
         throw CodegenException()
     }
 
     fun declareRoutine(
         name: String,
         returnValueType: CellValueType?,
-        parameters: List<RoutineDescription.RoutineParameter>
+        parameters: List<Routine.Parameter>
     ) {
         routinesManager.declareRoutine(name, returnValueType, parameters)
     }
 
     fun resolveRoutine(
         name: String
-    ): RoutineDescription {
+    ): Routine {
         return routinesManager.getRoutine(name)
     }
+    /** ---- DECLARATION END ---- */
 }

@@ -3,6 +3,7 @@ package com.github.setterwars.compilercourse.codegen.traverser.ast.declaration
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.Block
 import com.github.setterwars.compilercourse.codegen.traverser.ast.expression.resolveExpression
 import com.github.setterwars.compilercourse.codegen.traverser.ast.type.resolveCellValueType
+import com.github.setterwars.compilercourse.codegen.traverser.cell.MemoryReferencable
 import com.github.setterwars.compilercourse.codegen.traverser.cell.store
 import com.github.setterwars.compilercourse.codegen.traverser.cell.toWasmValue
 import com.github.setterwars.compilercourse.codegen.traverser.common.WasmContext
@@ -38,7 +39,7 @@ fun WasmContext.resolveVariableDeclarationNoType(
     val initializerBlock = Block(
         resultType = er.onStackValueType.toWasmValue(),
         instructions = buildList {
-            addAll(variable.store(er.instructions))
+            addAll(variable.store { er.instructions })
         }
     )
     if (declarationManager.inScope()) {
@@ -61,18 +62,27 @@ fun WasmContext.resolveVariableDeclarationWithType(
     } else {
         declarationManager.declareGlobalVariable(name, cellValueType)
     }
-    if (variableDeclarationWithType.initialValue == null) {
-        return VariableDeclarationResolveResult(null)
+    val variable = declarationManager.resolveVariable(name)
+
+    val initializerBlock = if (variable.cellValueType is MemoryReferencable) {
+        Block(
+            resultType = null,
+            instructions = createInitializerForMemoryReferencable(variable.cellValueType)
+        )
+    } else if (variableDeclarationWithType.initialValue != null) {
+        val er = resolveExpression(variableDeclarationWithType.initialValue)
+        Block(
+            resultType = cellValueType.toWasmValue(),
+            instructions = buildList {
+                addAll(variable.store { er.instructions })
+            }
+        )
+    } else {
+        Block(
+            null, emptyList()
+        )
     }
 
-    val variable = declarationManager.resolveVariable(name)
-    val er = resolveExpression(variableDeclarationWithType.initialValue)
-    val initializerBlock = Block(
-        resultType = cellValueType.toWasmValue(),
-        instructions = buildList {
-            addAll(variable.store(er.instructions))
-        }
-    )
     if (declarationManager.inScope()) {
         return VariableDeclarationResolveResult(
             initializerBlock = initializerBlock
@@ -82,3 +92,4 @@ fun WasmContext.resolveVariableDeclarationWithType(
     }
     return VariableDeclarationResolveResult(initializerBlock)
 }
+

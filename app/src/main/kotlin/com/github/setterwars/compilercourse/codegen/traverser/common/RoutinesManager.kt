@@ -1,27 +1,18 @@
 package com.github.setterwars.compilercourse.codegen.traverser.common
 
 import com.github.setterwars.compilercourse.codegen.traverser.cell.CellValueType
+import com.github.setterwars.compilercourse.codegen.traverser.cell.Routine
 import com.github.setterwars.compilercourse.codegen.utils.CodegenException
 
 class RoutinesManager {
-    data class RoutineDescription(
-        val name: String,
-        val returnValueType: CellValueType?,
-        val parameters: List<RoutineParameter>,
-        val index: Int,
-    ) {
-        data class RoutineParameter(val name: String, val cellValueType: CellValueType)
-    }
-
-
-    private val routines = mutableMapOf<String, RoutineDescription>()
+    private val routines = mutableMapOf<String, Routine>()
 
     // If the exact same routine was already declared - then skip it
     // Otherwise throw exception
     fun declareRoutine(
         name: String,
         returnValueType: CellValueType?,
-        parameters: List<RoutineDescription.RoutineParameter>
+        parameters: List<Routine.Parameter>
     ) {
         if (name in routines.keys) {
             val r = routines[name]!!
@@ -29,7 +20,7 @@ class RoutinesManager {
                 throw CodegenException()
             }
         }
-        routines[name] = RoutineDescription(
+        routines[name] = Routine(
             name = name,
             returnValueType = returnValueType,
             parameters = parameters,
@@ -37,11 +28,11 @@ class RoutinesManager {
         )
     }
 
-    fun getRoutineOrNull(name: String): RoutineDescription? {
+    fun getRoutineOrNull(name: String): Routine? {
         return routines[name]
     }
 
-    fun getRoutine(name: String): RoutineDescription {
+    fun getRoutine(name: String): Routine {
         return routines[name]!!
     }
 }
