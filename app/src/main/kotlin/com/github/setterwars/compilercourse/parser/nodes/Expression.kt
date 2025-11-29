@@ -2,6 +2,7 @@ package com.github.setterwars.compilercourse.parser.nodes
 
 import com.github.setterwars.compilercourse.lexer.Token
 import com.github.setterwars.compilercourse.semantic.semanticData.ExpressionSemanticData
+import com.github.setterwars.compilercourse.semantic.semanticData.ModifiablePrimarySemanticData
 import com.github.setterwars.compilercourse.semantic.semanticData.UnaryIntegerSemanticData
 import com.github.setterwars.compilercourse.semantic.semanticData.UnaryRealSemanticData
 
@@ -35,7 +36,7 @@ data class ExpressionInParenthesis(
     val expression: Expression,
 ) : Summand
 
-interface Primary : Summand
+sealed interface Primary : Summand
 
 data class UnaryInteger(
     val unaryOperator: UnaryOperator?,
@@ -57,7 +58,7 @@ enum class BooleanLiteral : Primary { TRUE, FALSE }
 data class ModifiablePrimary(
     val variable: Identifier,
     val accessors: List<Accessor>?,
-)
+) : SemanticDataHolder<ModifiablePrimarySemanticData>()
 
 sealed interface Accessor
 

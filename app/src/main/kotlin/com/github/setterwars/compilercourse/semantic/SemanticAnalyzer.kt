@@ -1,20 +1,24 @@
 package com.github.setterwars.compilercourse.semantic
 
+import com.github.setterwars.compilercourse.codegen.utils.toInt
 import com.github.setterwars.compilercourse.parser.nodes.*
+import com.github.setterwars.compilercourse.semantic.semanticData.DeclaredTypeSemanticData
+import com.github.setterwars.compilercourse.semantic.semanticData.ExpressionSemanticData
+import com.github.setterwars.compilercourse.semantic.semanticData.UnaryRealSemanticData
+
+class SemanticException(
+    message: String = "",
+    val line: Int = -1,
+) : Exception(message)
 
 class SemanticAnalyzer {
-
-    val info = SemanticInfoStore()
-    private val errors = mutableListOf<SemanticError>()
-
     private val globalScope = SymbolTable(null)
     private var currentScope: SymbolTable = globalScope
+    var currentRoutine: String? = null
 
-    fun analyze(program: Program): AnalysisResult {
-        errors.clear()
+    fun analyze(program: Program) {
         currentScope = globalScope
         analyzeProgram(program)
-        return AnalysisResult(errors.toList())
     }
 
     private fun analyzeProgram(p: Program) {
@@ -32,23 +36,28 @@ class SemanticAnalyzer {
     private fun analyzeTypeDeclaration(td: TypeDeclaration) {
         val name = td.identifier.token.lexeme
         if (currentScope.isDeclaredInCurrentScope(name)) {
-            semanticError("Type '$name' already declared", td.identifier.token.span.line); return
+            throw SemanticException("Type '$name' already declared", td.identifier.token.span.line)
         }
-        val resolved = analyzeType(td.type, inParamPos = false)
-        currentScope.addDeclaredType(name, resolved)
+        val resolved = analyzeType(td.type)
+        currentScope.declareType(name, td.type, resolved)
     }
 
     private fun analyzeRoutineDeclaration(rd: RoutineDeclaration) {
         val header = rd.header
         val name = header.name.token.lexeme
         if (globalScope.isDeclaredInCurrentScope(name)) {
-            semanticError("Routine '$name' already declared", header.name.token.span.line); return
+            throw SemanticException("Routine '$name' already declared", header.name.token.span.line)
         }
 
-        val params = analyzeParameters(header.parameters)
-        val ret = header.returnType?.let { analyzeType(it, inParamPos = false) } ?: ResolvedType.Void
+        val params = rd.header.parameters.parameters.withIndex().map { (index, pd) ->
+            analyzeType(pd.type, isLastParamPosInFunctionArgs = (index + 1 == rd.header.parameters.parameters.size))
+        }
+        if ((params.last() as? SemanticType.Array)?.size == null && params[params.size - 2] !is SemanticType.Integer) {
+            throw SemanticException("variadic")
+        }
+        val ret = header.returnType?.let { analyzeType(it) }
 
-        globalScope.addDeclaredRoutine(name, RoutineSymbol(params, ret, rd))
+        globalScope.declareRoutine(name, RoutineSymbol(params, ret, rd))
 
         // Body
         rd.body?.let { body ->
@@ -56,16 +65,18 @@ class SemanticAnalyzer {
             currentScope = SymbolTable(globalScope)
             // declare params in routine scope
             header.parameters.parameters.forEachIndexed { idx, pd ->
-                currentScope.addDeclaredVariable(pd.name.token.lexeme, params[idx])
+                currentScope.declareVariable(pd.name.token.lexeme, params[idx], null)
             }
+            currentRoutine = name
             analyzeRoutineBody(body, ret, name, header.name.token.span.line)
+            currentRoutine = null
             currentScope = saved
         }
     }
 
     private fun analyzeRoutineBody(
         rb: RoutineBody,
-        expectedReturn: ResolvedType,
+        expectedReturn: SemanticType?,
         routineName: String,
         routineLine0: Int
     ) {
@@ -73,52 +84,44 @@ class SemanticAnalyzer {
             is FullRoutineBody -> analyzeBody(rb.body)
             is SingleExpressionBody -> {
                 val (t, _) = analyzeExpression(rb.expression)
-                if (expectedReturn != ResolvedType.Void && !assignable(expectedReturn, t)) {
-                    semanticError("Wrong return type for routine '$routineName'", routineLine0)
-                }
-                if (expectedReturn == ResolvedType.Void) {
-                    // Using => expr in void routine is allowed but ignored.
+                if (expectedReturn == null || !assignable(expectedReturn, t)) {
+                    throw SemanticException("Wrong return type for routine '$routineName'", routineLine0)
                 }
             }
         }
     }
-
-    private fun analyzeParameters(ps: Parameters): List<ResolvedType> =
-        ps.parameters.map { analyzeParameterDeclaration(it) }
-
-    private fun analyzeParameterDeclaration(pd: ParameterDeclaration): ResolvedType =
-        analyzeType(pd.type, inParamPos = true)
 
     private fun analyzeVariableDeclaration(vd: VariableDeclaration) {
         when (vd) {
             is VariableDeclarationWithType -> {
                 val name = vd.identifier.token.lexeme
                 if (currentScope.isDeclaredInCurrentScope(name)) {
-                    semanticError(
+                    throw SemanticException(
                         "Variable '$name' already declared in this scope",
                         vd.identifier.token.span.line
-                    ); return
+                    )
                 }
-                val declared = analyzeType(vd.type, inParamPos = false)
-                vd.initialValue?.let { iv ->
-                    val (it, _) = analyzeExpression(iv)
-                    if (!assignable(declared, it)) {
-                        semanticError("Cannot initialize '$name' with incompatible type", vd.identifier.token.span.line)
+                val declared = analyzeType(vd.type)
+                val cv = vd.initialValue?.let { iv ->
+                    val (t, c) = analyzeExpression(iv)
+                    if (!assignable(declared, t)) {
+                        throw SemanticException("Cannot initialize '$name' with incompatible type", vd.identifier.token.span.line)
                     }
+                    c
                 }
-                currentScope.addDeclaredVariable(name, declared)
+                currentScope.declareVariable(name, declared, cv)
             }
 
             is VariableDeclarationNoType -> {
                 val name = vd.identifier.token.lexeme
                 if (currentScope.isDeclaredInCurrentScope(name)) {
-                    semanticError(
+                    throw SemanticException(
                         "Variable '$name' already declared in this scope",
                         vd.identifier.token.span.line
-                    ); return
+                    )
                 }
-                val (t, _) = analyzeExpression(vd.initialValue)
-                currentScope.addDeclaredVariable(name, t)
+                val (t, cv) = analyzeExpression(vd.initialValue)
+                currentScope.declareVariable(name, t, cv)
             }
         }
     }
@@ -135,47 +138,82 @@ class SemanticAnalyzer {
     private fun analyzeStatement(s: Statement) {
         when (s) {
             is Assignment -> analyzeAssignment(s)
-            is RoutineCall -> {
-                analyzeRoutineCall(s)
-            } // as statement
+            is RoutineCall -> analyzeRoutineCall(s)
             is WhileLoop -> analyzeWhileLoop(s)
             is ForLoop -> analyzeForLoop(s)
             is IfStatement -> analyzeIfStatement(s)
             is PrintStatement -> analyzePrintStatement(s)
+            is ReturnStatement -> analyzeReturnStatement(s)
+        }
+    }
+
+    private fun analyzeReturnStatement(s: ReturnStatement) {
+        val sym = globalScope.lookupRoutine(currentRoutine!!)!!
+        if (s.expression == null) {
+            if (sym.returnType != null) {
+                throw SemanticException()
+            }
+            return
+        }
+        val (t, _) = analyzeExpression(s.expression)
+        if (sym.returnType == null || !assignable(sym.returnType, t)) {
+            throw SemanticException()
         }
     }
 
     private fun analyzeAssignment(a: Assignment) {
         val lt = analyzeModifiablePrimary(a.modifiablePrimary)
         val (rt, _) = analyzeExpression(a.expression)
-        if (!assignable(lt, rt)) {
-            semanticError("Type mismatch in assignment", a.modifiablePrimary.variable.token.span.line)
+        if (!assignable(lt.first, rt)) {
+            throw SemanticException("Type mismatch in assignment", a.modifiablePrimary.variable.token.span.line)
         }
     }
 
-    private fun analyzeRoutineCall(call: RoutineCall): ResolvedType {
+    private fun analyzeRoutineCall(call: RoutineCall): SemanticType? {
         // analyze children (arguments)
         call.arguments.forEach { analyzeExpression(it.expression) }
 
         val name = call.routineName.token.lexeme
-        val sym = currentScope.lookupRoutine(name)
-        if (sym == null) {
-            semanticError("Call to undeclared routine '$name'", call.routineName.token.span.line)
-            info.setSemanticInfo(call, RoutineCallSemanticInfo(ResolvedType.Void))
-            return ResolvedType.Void
-        }
+        val sym = currentScope.lookupRoutine(name) ?: throw SemanticException(
+            "Call to undeclared routine '$name'",
+            call.routineName.token.span.line
+        )
         if (call.arguments.size != sym.parameterTypes.size) {
-            semanticError("Wrong number of arguments for '$name'", call.routineName.token.span.line)
+            throw SemanticException("Wrong number of arguments for '$name'", call.routineName.token.span.line)
         }
-        val n = minOf(call.arguments.size, sym.parameterTypes.size)
-        for (i in 0 until n) {
-            val at = analyzeExpression(call.arguments[i].expression).first
-            val pt = sym.parameterTypes[i]
-            if (!assignable(pt, at)) {
-                semanticError("Argument ${i + 1} type mismatch for '$name'", call.routineName.token.span.line)
+        if (sym.variadic) {
+            for (i in 0 until sym.parameterTypes.size - 1) {
+                val at = analyzeExpression(call.arguments[i].expression).first
+                val pt = sym.parameterTypes[i]
+                if (!assignable(pt, at)) {
+                    throw SemanticException(
+                        "Argument ${i + 1} type mismatch for '$name'",
+                        call.routineName.token.span.line
+                    )
+                }
+            }
+            for (i in sym.parameterTypes.size - 1 until call.arguments.size) {
+                val at = analyzeExpression(call.arguments[i].expression).first
+                val pt = (sym.parameterTypes.last() as SemanticType.Array).elementType
+                if (!assignable(pt, at)) {
+                    throw SemanticException(
+                        "Argument ${i + 1} type mismatch for '$name'",
+                        call.routineName.token.span.line
+                    )
+                }
+            }
+        } else {
+            for (i in 0 until call.arguments.size) {
+                val at = analyzeExpression(call.arguments[i].expression).first
+                val pt = sym.parameterTypes[i]
+                if (!assignable(pt, at)) {
+                    throw SemanticException(
+                        "Argument ${i + 1} type mismatch for '$name'",
+                        call.routineName.token.span.line
+                    )
+                }
             }
         }
-        info.setSemanticInfo(call, RoutineCallSemanticInfo(sym.returnType))
         return sym.returnType
     }
 
@@ -187,9 +225,9 @@ class SemanticAnalyzer {
     }
 
     private fun analyzeForLoop(f: ForLoop) {
-        val saved = currentScope; currentScope = SymbolTable(saved)
-        // loop var is integer
-        currentScope.addDeclaredVariable(f.loopVariable.token.lexeme, ResolvedType.Integer)
+        val saved = currentScope
+        currentScope = SymbolTable(saved)
+        currentScope.declareVariable(f.loopVariable.token.lexeme, SemanticType.Integer, null)
 
         analyzeRange(f.range)
         analyzeBody(f.body)
@@ -197,23 +235,18 @@ class SemanticAnalyzer {
     }
 
     private fun analyzeIfStatement(i: IfStatement) {
-        analyzeExpression(i.condition)
-        val conditionExpressionNodeInfo = info.get<ExpressionSemanticInfo>(i.condition)
-        if (conditionExpressionNodeInfo.type !is ResolvedType.Boolean) {
-            semanticError("Condition expression must be boolean type but it is ${conditionExpressionNodeInfo.type} in $i")
-        }
-        if (conditionExpressionNodeInfo.const != null) {
-            info.setSemanticInfo(
-                i,
-                IfStatementSemanticInfo(compiledCondition = toBool(conditionExpressionNodeInfo.const))
-            )
+        val (t, _) = analyzeExpression(i.condition)
+        if (t !is SemanticType.Boolean) {
+            throw SemanticException("Condition expression must be boolean type but it is $t in $i")
         }
 
-        var saved = currentScope; currentScope = SymbolTable(saved)
+        var saved = currentScope
+        currentScope = SymbolTable(saved)
         analyzeBody(i.thenBody)
         currentScope = saved
         i.elseBody?.let {
-            saved = currentScope; currentScope = SymbolTable(saved)
+            saved = currentScope
+            currentScope = SymbolTable(saved)
             analyzeBody(it)
             currentScope = saved
         }
@@ -226,31 +259,37 @@ class SemanticAnalyzer {
 
     // ---------------- Expressions ----------------
 
-    private fun analyzeExpression(e: Expression): Pair<ResolvedType, PrimitiveTypeValue?> {
+    private fun analyzeExpression(e: Expression): Pair<SemanticType, CompileTimeValue?> {
         var (t, c) = analyzeRelation(e.relation)
         e.rest?.forEach { (op, r) ->
             val (rt, rc) = analyzeRelation(r)
-            val a = c?.let { toBool(it) }
-            val b = rc?.let { toBool(it) }
-            val out = if (a != null && b != null) {
+            if (t !is SemanticType.Boolean || rt !is SemanticType.Boolean) {
+                throw SemanticException()
+            }
+            val out = if (c != null && rc != null) {
+                val a = (c as CompileTimeBoolean).value
+                val b = (rc as CompileTimeBoolean).value
                 val v = when (op) {
                     ExpressionOperator.AND -> a && b
                     ExpressionOperator.OR -> a || b
                     ExpressionOperator.XOR -> (a && !b) || (!a && b)
                 }
-                BooleanValue(v)
+                CompileTimeBoolean(v)
             } else null
-            t = ResolvedType.Boolean; c = out
+            t = SemanticType.Boolean
+            c = out
         }
-        info.setSemanticInfo(e, ExpressionSemanticInfo(t, c))
+        if (c != null) {
+            e.data = ExpressionSemanticData(c)
+        }
         return t to c
     }
 
-    private fun analyzeRelation(r: Relation): Pair<ResolvedType, PrimitiveTypeValue?> {
+    private fun analyzeRelation(r: Relation): Pair<SemanticType, CompileTimeValue?> {
         val (lt, lc) = analyzeSimple(r.simple)
         if (r.comparison != null) {
             val (op, s) = r.comparison
-            val (rt, rc) = analyzeSimple(s)
+            val (_, rc) = analyzeSimple(s)
             val out = if (lc != null && rc != null) {
                 val res = when (op) {
                     RelationOperator.LT -> compare(lc, rc) < 0
@@ -260,21 +299,19 @@ class SemanticAnalyzer {
                     RelationOperator.EQ -> equalConst(lc, rc)
                     RelationOperator.NEQ -> !equalConst(lc, rc)
                 }
-                BooleanValue(res)
+                CompileTimeBoolean(res)
             } else null
-            info.setSemanticInfo(r, RelationSemanticInfo(ResolvedType.Boolean, out))
-            return ResolvedType.Boolean to out
+            return SemanticType.Boolean to out
         } else {
-            info.setSemanticInfo(r, RelationSemanticInfo(lt, lc))
             return lt to lc
         }
     }
 
-    private fun analyzeSimple(s: Simple): Pair<ResolvedType, PrimitiveTypeValue?> {
+    private fun analyzeSimple(s: Simple): Pair<SemanticType, CompileTimeValue?> {
         var (t, c) = analyzeFactor(s.factor)
         s.rest?.forEach { (op, f) ->
             val (rt, rc) = analyzeFactor(f)
-            val outType = arithmeticWiden(t, rt)
+            val outType = arithmeticWidenRealOrInt(t, rt)
             val outConst = if (c != null && rc != null) {
                 when (op) {
                     SimpleOperator.PLUS -> addConst(c, rc)
@@ -283,385 +320,360 @@ class SemanticAnalyzer {
             } else null
             t = outType; c = outConst
         }
-        info.setSemanticInfo(s, SimpleSemanticInfo(t, c))
         return t to c
     }
 
-    private fun analyzeFactor(f: Factor): Pair<ResolvedType, PrimitiveTypeValue?> {
+    private fun analyzeFactor(f: Factor): Pair<SemanticType, CompileTimeValue?> {
         var (t, c) = analyzeSummand(f.summand)
         f.rest?.forEach { (op, s) ->
             val (rt, rc) = analyzeSummand(s)
             val outType = when (op) {
-                FactorOperator.PRODUCT -> arithmeticWiden(t, rt)
-                FactorOperator.DIVISION -> arithmeticWiden(t, rt)
-                FactorOperator.MODULO -> ResolvedType.Integer
+                FactorOperator.PRODUCT -> arithmeticWidenRealOrInt(t, rt)
+                FactorOperator.DIVISION -> arithmeticWidenRealOrInt(t, rt)
+                FactorOperator.MODULO -> {
+                    if (t !is SemanticType.Integer || rt !is SemanticType.Integer) {
+                        throw SemanticException()
+                    }
+                    SemanticType.Integer
+                }
             }
             val outConst = if (c != null && rc != null) {
                 when (op) {
                     FactorOperator.PRODUCT -> mulConst(c, rc)
                     FactorOperator.DIVISION -> divConst(c, rc)
-                    FactorOperator.MODULO -> modConst(c, rc)
+                    FactorOperator.MODULO -> modConst(c as CompileTimeInteger, rc as CompileTimeInteger)
                 }
             } else null
             t = outType; c = outConst
         }
-        info.setSemanticInfo(f, FactorSemanticInfo(t, c))
         return t to c
     }
 
-    private fun analyzeSummand(s: Summand): Pair<ResolvedType, PrimitiveTypeValue?> =
+    private fun analyzeSummand(s: Summand): Pair<SemanticType, CompileTimeValue?> =
         when (s) {
             is ExpressionInParenthesis -> analyzeExpressionInParenthesis(s)
             is Primary -> analyzePrimary(s)
-            else -> ResolvedType.Boolean to null
         }
 
-    private fun analyzeExpressionInParenthesis(ep: ExpressionInParenthesis): Pair<ResolvedType, PrimitiveTypeValue?> =
+    private fun analyzeExpressionInParenthesis(ep: ExpressionInParenthesis): Pair<SemanticType, CompileTimeValue?> =
         analyzeExpression(ep.expression)
 
-    private fun analyzePrimary(p: Primary): Pair<ResolvedType, PrimitiveTypeValue?> =
+    private fun analyzePrimary(p: Primary): Pair<SemanticType, CompileTimeValue?> =
         when (p) {
-            is UnaryInteger -> analyzeUnaryInteger(p)
-            is UnaryReal -> analyzeUnaryReal(p)
+            is UnaryInteger -> SemanticType.Integer to analyzeUnaryInteger(p)
+            is UnaryReal -> SemanticType.Real to analyzeUnaryReal(p)
             is UnaryModifiablePrimary -> analyzeUnaryModifiablePrimary(p)
-            is BooleanLiteral -> analyzeBooleanLiteral(p)
+            is BooleanLiteral -> SemanticType.Boolean to analyzeBooleanLiteral(p)
             is RoutineCall -> {
-                val t = analyzeRoutineCall(p)
-                if (t == ResolvedType.Void) {
-                    semanticError("Using a void routine in an expression", p.routineName.token.span.line)
-                }
+                val t = analyzeRoutineCall(p) ?: throw SemanticException(
+                    "Using a non-return routine in an expression",
+                    p.routineName.token.span.line
+                )
                 t to null
             }
-
-            else -> ResolvedType.Boolean to null
         }
 
-    private fun analyzeUnaryInteger(ui: UnaryInteger): Pair<ResolvedType, PrimitiveTypeValue?> {
+    private fun analyzeUnaryInteger(ui: UnaryInteger): CompileTimeInteger {
         val rawStr = ui.integerLiteral.token.lexeme
-        val raw = rawStr.toLongOrNull()
-        if (raw == null) {
-            semanticError("Integer literal out of range", ui.integerLiteral.token.span.line)
-            return ResolvedType.Integer to null
-        }
-        info.setSemanticInfo(ui.integerLiteral, IntegerLiteralSemanticInfo(raw))
-
-        return when (ui.unaryOperator) {
-            null -> ResolvedType.Integer to IntValue(raw)
+        val raw: Int = rawStr.toIntOrNull() ?: throw SemanticException(
+            "Integer literal out of range",
+            ui.integerLiteral.token.span.line
+        )
+        val sRaw: Int = when (ui.unaryOperator) {
+            null -> raw
             is UnarySign -> {
-                val v = if (ui.unaryOperator == UnarySign.MINUS) -raw else raw
-                info.setSemanticInfo(ui, UnaryIntegerSemanticInfo(v))
-                ResolvedType.Integer to IntValue(v)
+                if (ui.unaryOperator == UnarySign.MINUS) -raw else raw
             }
 
             is UnaryNot -> {
-                // not <int> → boolean (0=false, else true)
-                val asBool = raw != 0L
-                info.setSemanticInfo(ui, UnaryIntegerSemanticInfo(if (asBool) 0L else 1L))
-                ResolvedType.Boolean to BooleanValue(!asBool)
+                (raw == 0).toInt()
             }
         }
+        return CompileTimeInteger(sRaw)
     }
 
-    private fun analyzeUnaryReal(ur: UnaryReal): Pair<ResolvedType, PrimitiveTypeValue?> {
-        val raw = ur.realLiteral.token.lexeme.toDoubleOrNull()
-        if (raw == null) {
-            semanticError("Invalid real literal", ur.realLiteral.token.span.line)
-            return ResolvedType.Real to null
-        }
-        info.setSemanticInfo(ur.realLiteral, RealLiteralSemanticInfo(raw))
+    private fun analyzeUnaryReal(ur: UnaryReal): CompileTimeDouble {
+        val raw = ur.realLiteral.token.lexeme.toDoubleOrNull() ?: throw SemanticException(
+            "Invalid real literal",
+            ur.realLiteral.token.span.line
+        )
         val v = if (ur.unaryRealOperator == UnarySign.MINUS) -raw else raw
-        return ResolvedType.Real to RealValue(v)
+        ur.data = UnaryRealSemanticData(v)
+        return CompileTimeDouble(v)
     }
 
-    private fun analyzeUnaryModifiablePrimary(ump: UnaryModifiablePrimary): Pair<ResolvedType, PrimitiveTypeValue?> {
-        val baseType = analyzeModifiablePrimary(ump.modifiablePrimary)
+    private fun analyzeUnaryModifiablePrimary(ump: UnaryModifiablePrimary): Pair<SemanticType, CompileTimeValue?> {
+        val (bt, bcv) = analyzeModifiablePrimary(ump.modifiablePrimary)
         return when (ump.unaryOperator) {
-            null -> baseType to null
-            is UnaryNot -> ResolvedType.Boolean to null // cannot fold without value
+            null -> bt to null
+            is UnaryNot -> {
+                if (bcv == null) {
+                    check(bt is SemanticType.Integer || bt is SemanticType.Boolean)
+                    bt to null
+                } else if (bt is SemanticType.Integer) {
+                    check(bcv is CompileTimeInteger)
+                    SemanticType.Integer to CompileTimeInteger((bcv.value == 0).toInt())
+                } else if (bt is SemanticType.Boolean) {
+                    check(bcv is CompileTimeBoolean)
+                    SemanticType.Boolean to CompileTimeBoolean(!bcv.value)
+                } else {
+                    throw SemanticException()
+                }
+            }
+
             is UnarySign -> {
-                // STRICT: cannot use unary sign on non-primitive modifiable primary
-                if (!isPrimitive(baseType)) {
-                    semanticError(
+                if (!isPrimitive(bt)) {
+                    throw SemanticException(
                         "Unary sign cannot be applied to non-primitive value",
                         ump.modifiablePrimary.variable.token.span.line
                     )
-                    ResolvedType.Integer to null
                 } else {
-                    // arithmetic sign: widen to numeric domain
-                    when (baseType) {
-                        ResolvedType.Real -> ResolvedType.Real to null
-                        ResolvedType.Integer, ResolvedType.Boolean -> ResolvedType.Integer to null
-                        else -> ResolvedType.Integer to null
+                    when (bt) {
+                        SemanticType.Real -> SemanticType.Real to null
+                        SemanticType.Integer -> SemanticType.Integer to null
+                        else -> throw SemanticException()
                     }
                 }
             }
         }
     }
 
-    private fun analyzeBooleanLiteral(bl: BooleanLiteral): Pair<ResolvedType, PrimitiveTypeValue?> {
+    private fun analyzeBooleanLiteral(bl: BooleanLiteral): CompileTimeBoolean {
         val v = bl == BooleanLiteral.TRUE
-        return ResolvedType.Boolean to BooleanValue(v)
+        return CompileTimeBoolean(v)
     }
 
-    private fun analyzeModifiablePrimary(mp: ModifiablePrimary): ResolvedType {
-        var t: ResolvedType = analyzeIdentifier(mp.variable)
-        mp.accessors?.forEach { t = analyzeAccessor(t, it) }
-        info.setSemanticInfo(mp, ModifiablePrimarySemanticInfo(t))
-        return t
-    }
-
-    private fun analyzeIdentifier(id: Identifier): ResolvedType {
-        val name = id.token.lexeme
-        val t = currentScope.lookupVariable(name)
-        if (t == null) {
-            semanticError("Undeclared variable '$name'", id.token.span.line)
-            return ResolvedType.Boolean
+    private fun analyzeModifiablePrimary(mp: ModifiablePrimary): Pair<SemanticType, CompileTimeValue?> {
+        var (t, cv) = analyzeVariable(mp.variable)
+        if (mp.accessors == null) {
+            return t to cv
         }
-        return t
+        mp.accessors.forEach { t = analyzeAccessor(t, it) }
+        return t to null
     }
 
-    private fun analyzeAccessor(prev: ResolvedType, acc: Accessor): ResolvedType =
+    private fun analyzeVariable(id: Identifier): Pair<SemanticType, CompileTimeValue?> {
+        val name = id.token.lexeme
+        val t = currentScope.lookupVariable(name) ?: throw SemanticException(
+            "Undeclared variable '$name'",
+            id.token.span.line
+        )
+        return t.semanticType to t.compileTimeValue
+    }
+
+    private fun analyzeAccessor(prev: SemanticType, acc: Accessor): SemanticType =
         when (acc) {
             is FieldAccessor -> analyzeFieldAccessor(prev, acc)
             is ArrayAccessor -> analyzeArrayAccessor(prev, acc)
-            else -> ResolvedType.Boolean
         }
 
-    private fun analyzeFieldAccessor(prev: ResolvedType, acc: FieldAccessor): ResolvedType {
-        if (prev is ResolvedType.Record) {
+    private fun analyzeFieldAccessor(prev: SemanticType, acc: FieldAccessor): SemanticType {
+        if (prev is SemanticType.Record) {
             val f = acc.identifier.token.lexeme
-            val ft = prev.fields[f]
-            if (ft == null) {
-                semanticError("No such field '$f'", acc.identifier.token.span.line)
-                return ResolvedType.Boolean
-            }
-            return ft
+            val ft = prev.fields.find { it.name == f } ?: throw SemanticException("No such field '$f'", acc.identifier.token.span.line)
+            return ft.type
         }
-        semanticError("Field access on non-record value", acc.identifier.token.span.line)
-        return ResolvedType.Boolean
+        throw SemanticException("Field access on non-record value", acc.identifier.token.span.line)
     }
 
-    private fun analyzeArrayAccessor(prev: ResolvedType, acc: ArrayAccessor): ResolvedType {
-        analyzeExpression(acc.expression) // index expr analyzed; strict type check not forced here
-        return when (prev) {
-            is ResolvedType.SizedArray -> {
-                val expressionSemanticInfo = info.get<ExpressionSemanticInfo>(acc.expression)
-                if (expressionSemanticInfo.type !is ResolvedType.Integer) {
-                    semanticError("Accessor $acc is not integer")
-                }
-                if ((expressionSemanticInfo.const as IntValue).value !in 1..prev.size) {
-                    semanticError("Accessor $acc value is not an integer constant or is not in bounds")
-                }
-                prev.elementType
-            }
-
-            is ResolvedType.UnsizedArray -> prev.elementType
-            else -> {
-                semanticError(
-                    "Indexing non-array value", when (acc) {
-                        else -> 0
-                    }
-                )
-                ResolvedType.Boolean
-            }
+    private fun analyzeArrayAccessor(prev: SemanticType, acc: ArrayAccessor): SemanticType {
+        val (t, cv) = analyzeExpression(acc.expression)
+        if (t !is SemanticType.Integer) {
+            throw SemanticException()
         }
+        if (cv != null && cv !is CompileTimeInteger) {
+            throw SemanticException()
+        }
+        if (prev is SemanticType.Array) {
+            return prev.elementType
+        }
+        throw SemanticException()
     }
 
     // ---------------- Types ----------------
 
-    private fun analyzeType(t: Type, inParamPos: Boolean): ResolvedType {
+    private fun analyzeType(t: Type, isLastParamPosInFunctionArgs: Boolean = false): SemanticType {
         val resolvedType = when (t) {
-            PrimitiveType.INTEGER -> ResolvedType.Integer
-            PrimitiveType.REAL -> ResolvedType.Real
-            PrimitiveType.BOOLEAN -> ResolvedType.Boolean
+            PrimitiveType.INTEGER -> SemanticType.Integer
+            PrimitiveType.REAL -> SemanticType.Real
+            PrimitiveType.BOOLEAN -> SemanticType.Boolean
 
             is DeclaredType -> {
                 val name = t.identifier.token.lexeme
-                currentScope.lookupType(name) ?: run {
-                    semanticError("Unknown type '$name'", t.identifier.token.span.line)
-                    ResolvedType.Boolean
+                val td = currentScope.lookupType(name) ?: run {
+                    throw SemanticException("Unknown type '$name'", t.identifier.token.span.line)
                 }
+                t.data = DeclaredTypeSemanticData(td.underlyingType)
+                td.semanticType
             }
 
-            is ArrayType -> analyzeArrayType(t, inParamPos)
+            is ArrayType -> analyzeArrayType(t, isLastParamPosInFunctionArgs)
             is RecordType -> analyzeRecordType(t)
         }
-        info.setSemanticInfo(
-            t,
-            info = TypeSemanticInfo(resolvedType = resolvedType)
-        )
         return resolvedType
     }
 
-    private fun analyzeArrayType(at: ArrayType, inParamPos: Boolean): ResolvedType {
-        val elem = analyzeType(at.type, inParamPos)
+    private fun analyzeArrayType(at: ArrayType, isLastParamPosInFunctionArgs: Boolean): SemanticType.Array {
+        val elem = analyzeType(at.type)
         val const = at.expressionInBrackets?.let { analyzeExpression(it).second }
-        val size = const?.let { toLong(it).coerceAtLeast(0).toInt() }
-        return if (size != null) ResolvedType.SizedArray(size, elem) else ResolvedType.UnsizedArray(elem)
+        if (at.expressionInBrackets != null && const !is CompileTimeInteger) {
+            throw SemanticException()
+        }
+        if (!isLastParamPosInFunctionArgs && at.expressionInBrackets == null) {
+            throw SemanticException()
+        }
+        val size = const?.let { (it as CompileTimeInteger).value }
+        return SemanticType.Array(size, elem)
     }
 
-    private fun analyzeRecordType(rt: RecordType): ResolvedType {
-        val fmap = linkedMapOf<String, ResolvedType>()
-        rt.declarations.forEach { d ->
+    private fun analyzeRecordType(rt: RecordType): SemanticType.Record {
+        val fmap = mutableMapOf<String, SemanticType>()
+        val fields: List<SemanticType.Record.RecordField> = rt.declarations.map { d ->
             when (d) {
                 is VariableDeclarationWithType -> {
                     val fname = d.identifier.token.lexeme
                     if (fmap.containsKey(fname)) {
-                        semanticError("Duplicate record field '$fname'", d.identifier.token.span.line)
+                        throw SemanticException("Duplicate record field '$fname'", d.identifier.token.span.line)
                     } else {
-                        val ftype = analyzeType(d.type, inParamPos = false)
+                        val ftype = analyzeType(d.type)
                         d.initialValue?.let { analyzeExpression(it) }
                         fmap[fname] = ftype
+                        SemanticType.Record.RecordField(fname, ftype)
                     }
                 }
 
                 is VariableDeclarationNoType -> {
                     val fname = d.identifier.token.lexeme
                     if (fmap.containsKey(fname)) {
-                        semanticError("Duplicate record field '$fname'", d.identifier.token.span.line)
+                        throw SemanticException("Duplicate record field '$fname'", d.identifier.token.span.line)
                     } else {
                         val (ftype, _) = analyzeExpression(d.initialValue)
                         fmap[fname] = ftype
+                        SemanticType.Record.RecordField(fname, ftype)
                     }
                 }
             }
         }
-        return ResolvedType.Record(fmap)
+        return SemanticType.Record(fields = fields)
     }
 
     private fun analyzeRange(r: Range) {
         val (bt, bc) = analyzeExpression(r.begin)
-        if (bt != ResolvedType.Integer) {
-            semanticError("For-loop begin bound must be integer: $r")
+        if (bt != SemanticType.Integer) {
+            throw SemanticException("For-loop begin bound must be integer: $r")
         }
         r.end?.let { e ->
             val (et, _) = analyzeExpression(e)
-            if (et != ResolvedType.Integer) {
-                semanticError("For-loop end bound must be integer: $r")
+            if (et != SemanticType.Integer) {
+                throw SemanticException("For-loop end bound must be integer: $r")
             }
         }
 
     }
 
-    private fun analyzeRoutineHeader(h: RoutineHeader): Pair<List<ResolvedType>, ResolvedType> {
-        val ps = analyzeParameters(h.parameters)
-        val rt = h.returnType?.let { analyzeType(it, inParamPos = false) } ?: ResolvedType.Void
-        return ps to rt
-    }
-
     // Various stuff for primitive types
 
-    private fun assignable(expected: ResolvedType, actual: ResolvedType): Boolean {
-        if (isPrimitive(expected) && isPrimitive(actual)) return true // Yes - all primitives are FRIENDS
+    private fun assignable(expected: SemanticType, actual: SemanticType): Boolean {
 
-        when {
-            expected is ResolvedType.SizedArray && actual is ResolvedType.SizedArray ->
-                return expected.size == actual.size && assignable(expected.elementType, actual.elementType)
-
-            expected is ResolvedType.UnsizedArray && actual is ResolvedType.UnsizedArray ->
-                return assignable(expected.elementType, actual.elementType)
-
-            expected is ResolvedType.UnsizedArray && actual is ResolvedType.SizedArray ->
-                return assignable(expected.elementType, actual.elementType)
+        if (isPrimitive(expected) && isPrimitive(actual)) {
+            return !(expected is SemanticType.Boolean && actual is SemanticType.Real)
         }
 
-        if (expected is ResolvedType.Record && actual is ResolvedType.Record) {
-            if (expected.fields.keys != actual.fields.keys) return false
-            return expected.fields.all { (k, et) -> assignable(et, actual.fields.getValue(k)) }
+        if (expected is SemanticType.Array && actual is SemanticType.Array) {
+            return expected.size == actual.size && assignable(expected.elementType, actual.elementType)
         }
 
-        if (expected == ResolvedType.Void || actual == ResolvedType.Void) return false
+        if (expected is SemanticType.Record && actual is SemanticType.Record) {
+            if (expected.fields != actual.fields) return false
+        }
+
         return false
     }
 
-    private fun arithmeticWiden(a: ResolvedType, b: ResolvedType): ResolvedType {
-        if (a == ResolvedType.Real || b == ResolvedType.Real) return ResolvedType.Real
-        if (a == ResolvedType.Integer || b == ResolvedType.Integer) return ResolvedType.Integer
-        return ResolvedType.Integer // boolean + boolean -> integer domain
+    private fun arithmeticWidenRealOrInt(a: SemanticType, b: SemanticType): SemanticType {
+        if (a !is SemanticType.SemanticPrimitiveType || b !is SemanticType.SemanticPrimitiveType) {
+            throw SemanticException()
+        }
+        if (a is SemanticType.Boolean || b is SemanticType.Boolean) {
+            throw SemanticException()
+        }
+
+        if (a == SemanticType.Real || b == SemanticType.Real) return SemanticType.Real
+        return SemanticType.Integer
     }
 
-    private fun isPrimitive(t: ResolvedType) = t is ResolvedType.ResolvedPrimitiveType
+    private fun isPrimitive(t: SemanticType) = t is SemanticType.SemanticPrimitiveType
 
-    // Helpers for constants
-
-    private fun toBool(v: PrimitiveTypeValue): Boolean = when (v) {
-        is BooleanValue -> v.value
-        is IntValue -> v.value != 0L
-        is RealValue -> v.value != 0.0
+    private fun toBool(v: CompileTimeValue): Boolean = when (v) {
+        is CompileTimeBoolean -> v.value
+        is CompileTimeInteger -> v.value != 0
+        is CompileTimeDouble -> v.value != 0.0
     }
 
-    private fun toLong(v: PrimitiveTypeValue): Long = when (v) {
-        is BooleanValue -> if (v.value) 1L else 0L
-        is IntValue -> v.value
-        is RealValue -> v.value.toLong()
+    private fun toInteger(v: CompileTimeValue): Int = when (v) {
+        is CompileTimeBoolean -> if (v.value) 1 else 0
+        is CompileTimeInteger -> v.value
+        is CompileTimeDouble -> v.value.toInt()
     }
 
-    private fun toDouble(v: PrimitiveTypeValue): Double = when (v) {
-        is BooleanValue -> if (v.value) 1.0 else 0.0
-        is IntValue -> v.value.toDouble()
-        is RealValue -> v.value
+    private fun toDouble(v: CompileTimeValue): Double = when (v) {
+        is CompileTimeBoolean -> if (v.value) 1.0 else 0.0
+        is CompileTimeInteger -> v.value.toDouble()
+        is CompileTimeDouble -> v.value
     }
 
-    private fun equalConst(a: PrimitiveTypeValue, b: PrimitiveTypeValue): Boolean {
+    private fun equalConst(a: CompileTimeValue, b: CompileTimeValue): Boolean {
         return when {
-            a is RealValue || b is RealValue -> toDouble(a) == toDouble(b)
-            a is IntValue || b is IntValue -> toLong(a) == toLong(b)
-            else -> (a as BooleanValue).value == (b as BooleanValue).value
+            a is CompileTimeDouble || b is CompileTimeDouble -> toDouble(a) == toDouble(b)
+            a is CompileTimeInteger || b is CompileTimeInteger -> toInteger(a) == toInteger(b)
+            else -> (a as CompileTimeBoolean).value == (b as CompileTimeBoolean).value
         }
     }
 
-    /** a < b <=> a - b V 0
-     * negative <=> a - b < 0 <=> a < b
-     * positive <=> a - b > 0 <=> a > b
-     * zero <=> a - b = 0 <=> a == */
-    private fun compare(a: PrimitiveTypeValue, b: PrimitiveTypeValue): Int {
+    private fun compare(a: CompileTimeValue, b: CompileTimeValue): Int {
         return when {
-            a is RealValue || b is RealValue -> toDouble(a).compareTo(toDouble(b))
-            else -> toLong(a).compareTo(toLong(b))
+            a is CompileTimeDouble || b is CompileTimeDouble -> toDouble(a).compareTo(toDouble(b))
+            else -> toInteger(a).compareTo(toInteger(b))
         }
     }
 
-    private fun addConst(a: PrimitiveTypeValue, b: PrimitiveTypeValue): PrimitiveTypeValue =
-        if (a is RealValue || b is RealValue) RealValue(toDouble(a) + toDouble(b))
-        else IntValue(toLong(a) + toLong(b))
-
-    private fun subConst(a: PrimitiveTypeValue, b: PrimitiveTypeValue): PrimitiveTypeValue =
-        if (a is RealValue || b is RealValue) RealValue(toDouble(a) - toDouble(b))
-        else IntValue(toLong(a) - toLong(b))
-
-    private fun mulConst(a: PrimitiveTypeValue, b: PrimitiveTypeValue): PrimitiveTypeValue =
-        if (a is RealValue || b is RealValue) RealValue(toDouble(a) * toDouble(b))
-        else IntValue(toLong(a) * toLong(b))
-
-    private fun divConst(a: PrimitiveTypeValue, b: PrimitiveTypeValue): PrimitiveTypeValue {
-        val denomD = toDouble(b)
-        if (denomD == 0.0) return RealValue(Double.NaN)
-        return if (a is RealValue || b is RealValue) {
-            RealValue(toDouble(a) / denomD)
-        } else {
-            val denom = toLong(b)
-            if (denom == 0L) RealValue(Double.NaN) else IntValue(toLong(a) / denom)
+    private fun addConst(a: CompileTimeValue, b: CompileTimeValue): CompileTimeValue {
+        if (a is CompileTimeBoolean || b is CompileTimeBoolean) {
+            throw SemanticException()
         }
+
+        return if (a is CompileTimeDouble || b is CompileTimeDouble) CompileTimeDouble(toDouble(a) + toDouble(b))
+        else CompileTimeInteger(toInteger(a) + toInteger(b))
     }
 
-    private fun modConst(a: PrimitiveTypeValue, b: PrimitiveTypeValue): PrimitiveTypeValue {
-        val denom = toLong(b)
-        if (denom == 0L) return IntValue(0)
-        return IntValue(toLong(a) % denom)
+    private fun subConst(a: CompileTimeValue, b: CompileTimeValue): CompileTimeValue {
+        if (a is CompileTimeBoolean || b is CompileTimeBoolean) {
+            throw SemanticException()
+        }
+
+        return if (a is CompileTimeDouble || b is CompileTimeDouble) CompileTimeDouble(toDouble(a) - toDouble(b))
+        else CompileTimeInteger(toInteger(a) - toInteger(b))
     }
 
-    // Diagnostics Stuff
+    private fun mulConst(a: CompileTimeValue, b: CompileTimeValue): CompileTimeValue {
+        if (a is CompileTimeBoolean || b is CompileTimeBoolean) {
+            throw SemanticException()
+        }
 
-    private fun semanticError(message: String, lineZeroBased: Int? = null) {
-        errors += SemanticError(message, lineZeroBased?.plus(1))
+        return if (a is CompileTimeDouble || b is CompileTimeDouble) CompileTimeDouble(toDouble(a) * toDouble(b))
+        else CompileTimeInteger(toInteger(a) * toInteger(b))
     }
-}
 
-data class AnalysisResult(val errors: List<SemanticError>)
+    private fun divConst(a: CompileTimeValue, b: CompileTimeValue): CompileTimeValue {
+        if (a is CompileTimeBoolean || b is CompileTimeBoolean) {
+            throw SemanticException()
+        }
 
-data class SemanticError(
-    val message: String,
-    val line: Int?
-) {
-    override fun toString(): String = "Semantic error ${line?.let { "at line $line" } ?: ""} : $message"
+        return if (a is CompileTimeDouble || b is CompileTimeDouble) CompileTimeDouble(toDouble(a) / toDouble(b))
+        else CompileTimeInteger(toInteger(a) / toInteger(b))
+    }
+
+    private fun modConst(a: CompileTimeInteger, b: CompileTimeInteger): CompileTimeInteger {
+        return CompileTimeInteger(a.value % b.value)
+    }
 }

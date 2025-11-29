@@ -31,6 +31,8 @@ sealed interface VariableType {
 }
 
 // Generate instructions, that will store the value into the variable
+// NOTE: this function DOES NOT perform any semantic analysis, and expects
+// the value on the stack to MATCH the wasm value of the variable
 fun Variable.store(
     putValueOnStack: () -> List<Instr>
 ): List<Instr> = buildList {

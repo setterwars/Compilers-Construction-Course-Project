@@ -4,11 +4,10 @@ import com.github.setterwars.compilercourse.codegen.bytecode.ir.FuncType
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.Instr
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.WasmFunc
 import com.github.setterwars.compilercourse.codegen.traverser.ast.type.resolveCellValueType
+import com.github.setterwars.compilercourse.codegen.traverser.cell.Routine
 import com.github.setterwars.compilercourse.codegen.traverser.cell.toWasmValue
-import com.github.setterwars.compilercourse.codegen.traverser.common.RoutinesManager
 import com.github.setterwars.compilercourse.codegen.traverser.common.WasmContext
 import com.github.setterwars.compilercourse.codegen.utils.name
-import com.github.setterwars.compilercourse.parser.nodes.Body
 import com.github.setterwars.compilercourse.parser.nodes.RoutineBody
 import com.github.setterwars.compilercourse.parser.nodes.RoutineDeclaration
 import com.github.setterwars.compilercourse.parser.nodes.RoutineHeader
@@ -40,7 +39,7 @@ fun WasmContext.resolveRoutineHeader(
 ) {
     val name = routineHeader.name.name()
     val parameters = routineHeader.parameters.parameters.map {
-        RoutinesManager.RoutineDescription.RoutineParameter(
+        Routine.Parameter(
             name = it.name.name(),
             cellValueType = resolveCellValueType(it.type)
         )

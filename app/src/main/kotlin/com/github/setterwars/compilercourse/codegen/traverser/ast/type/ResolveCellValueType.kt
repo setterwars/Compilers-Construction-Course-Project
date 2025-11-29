@@ -27,7 +27,7 @@ fun WasmContext.resolveCellValueType(
     }
 }
 
-private fun WasmContext.resolvePrimitiveType(
+private fun resolvePrimitiveType(
     primitiveType: PrimitiveType
 ): CellValueType {
     return when (primitiveType) {

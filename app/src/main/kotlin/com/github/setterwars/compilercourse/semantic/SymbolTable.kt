@@ -1,55 +1,30 @@
 package com.github.setterwars.compilercourse.semantic
 
 import com.github.setterwars.compilercourse.parser.nodes.RoutineDeclaration
+import com.github.setterwars.compilercourse.parser.nodes.Type
 
-/**
- * - Basically a stack of tables
- *
- * Root scope: <variables, types, routines> <---(parent)--- Scope 1: <variables, types, routines> etc.
- *
- * - Scope contains main three entities:
- *
- * variables = Map<String, ResolvedType>
- * types: Map<String, ResolvedType>
- * routines: Map<String, RoutineSymbol> (only for root scope this map is non-empty)
- */
 class SymbolTable(val parent: SymbolTable?) {
-    private val variables = mutableMapOf<String, ResolvedType>()
-    private val types = mutableMapOf<String, ResolvedType>()
+    private val variables = mutableMapOf<String, VariableDescription>()
+    private val types = mutableMapOf<String, TypeDescription>()
     private val routines = mutableMapOf<String, RoutineSymbol>()
 
-    @Deprecated("use addDeclaredVariable")
-    fun declareVariable(name: String, type: ResolvedType) {
-        variables[name] = type
+    fun declareVariable(name: String, type: SemanticType, compileTimeValue: CompileTimeValue?) {
+        variables[name] = VariableDescription(type, compileTimeValue)
     }
 
-    fun addDeclaredVariable(name: String, type: ResolvedType) {
-        variables[name] = type
+    fun declareType(name: String, typeNode: Type, semanticType: SemanticType) {
+        types[name] = TypeDescription(semanticType, typeNode)
     }
 
-    @Deprecated("use addDeclaredType")
-    fun declareType(name: String, type: ResolvedType) {
-        types[name] = type
-    }
-
-    fun addDeclaredType(name: String, type: ResolvedType) {
-        types[name] = type
-    }
-
-    @Deprecated("Use addDeclaredRoutine")
     fun declareRoutine(name: String, routine: RoutineSymbol) {
         routines[name] = routine
     }
 
-    fun addDeclaredRoutine(name: String, routine: RoutineSymbol) {
-        routines[name] = routine
-    }
-
-    fun lookupVariable(name: String): ResolvedType? {
+    fun lookupVariable(name: String): VariableDescription? {
         return variables[name] ?: parent?.lookupVariable(name)
     }
 
-    fun lookupType(name: String): ResolvedType? {
+    fun lookupType(name: String): TypeDescription? {
         val type = types[name]
         return type ?: parent?.lookupType(name)
     }
@@ -61,45 +36,42 @@ class SymbolTable(val parent: SymbolTable?) {
     fun isDeclaredInCurrentScope(name: String): Boolean {
         return variables.containsKey(name) || types.containsKey(name) || routines.containsKey(name)
     }
+
+    data class VariableDescription(
+        val semanticType: SemanticType,
+        val compileTimeValue: CompileTimeValue? = null,
+    )
+
+    data class TypeDescription(
+        val semanticType: SemanticType,
+        val underlyingType: Type,
+    )
 }
 
 data class RoutineSymbol(
-    val parameterTypes: List<ResolvedType>,
-    val returnType: ResolvedType,
-    val declaration: RoutineDeclaration? = null
+    val parameterTypes: List<SemanticType>,
+    val returnType: SemanticType?, // null = returns nothing
+    val declaration: RoutineDeclaration? = null,
+    val variadic: Boolean = false,
 )
 
-sealed interface ResolvedType {
-    sealed interface ResolvedPrimitiveType : ResolvedType
-    data object Integer : ResolvedPrimitiveType // follows Kotlin Long
-    data object Real : ResolvedPrimitiveType    // follows Kotlin Double
-    data object Boolean : ResolvedPrimitiveType
+sealed interface SemanticType {
+    sealed interface SemanticPrimitiveType : SemanticType
+    data object Integer : SemanticPrimitiveType
+    data object Real : SemanticPrimitiveType
+    data object Boolean : SemanticPrimitiveType
 
-    /** Special: only allowed for routine return types. */
-    data object Void : ResolvedType
-
-    @Deprecated("Use UnsizedArray or SizedArray")
     data class Array(
-        val elementType: ResolvedType,
-        val size: Int?
-    ) : ResolvedType
-
-    data class SizedArray(
-        val size: Int,
-        val elementType: ResolvedType,
-    ) : ResolvedType
-
-    data class UnsizedArray(
-        val elementType: ResolvedType,
-    ) : ResolvedType
+        val size: Int?, // null = variadic parameter
+        val elementType: SemanticType,
+    ) : SemanticType
 
     data class Record(
-        val fields: Map<String, ResolvedType>
-    ) : ResolvedType
+        val fields: List<RecordField>
+    ) : SemanticType {
+        data class RecordField(
+            val name: String,
+            val type: SemanticType,
+        )
+    }
 }
-
-/** Compile-time constant payloads for primitives. */
-sealed interface PrimitiveTypeValue
-@JvmInline value class IntValue(val value: Long) : PrimitiveTypeValue
-@JvmInline value class BooleanValue(val value: Boolean) : PrimitiveTypeValue
-@JvmInline value class RealValue(val value: Double) : PrimitiveTypeValue
