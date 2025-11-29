@@ -64,7 +64,6 @@ private fun WasmContext.resolveUserType(
         }
 
         is RecordType -> {
-            // TODO: when variable declaration includes initial value - use it
             return CellValueType.MemoryReference(
                 InMemoryRecord(
                     fields = userType.declarations.map { vd ->
@@ -72,7 +71,8 @@ private fun WasmContext.resolveUserType(
                             is VariableDeclarationWithType -> {
                                 InMemoryRecord.RecordField(
                                     name = vd.identifier.name(),
-                                    cellValueType = resolveCellValueType(vd.type)
+                                    cellValueType = resolveCellValueType(vd.type),
+                                    initialValue = vd.initialValue,
                                 )
                             }
 
@@ -81,6 +81,7 @@ private fun WasmContext.resolveUserType(
                                 InMemoryRecord.RecordField(
                                     name = vd.identifier.name(),
                                     cellValueType = er.onStackValueType,
+                                    initialValue = vd.initialValue,
                                 )
                             }
                         }

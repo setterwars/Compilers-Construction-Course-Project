@@ -1,6 +1,6 @@
 package com.github.setterwars.compilercourse.parser.nodes
 
-interface Statement : BodyElement
+sealed interface Statement : BodyElement
 
 data class Assignment(
     val modifiablePrimary: ModifiablePrimary,

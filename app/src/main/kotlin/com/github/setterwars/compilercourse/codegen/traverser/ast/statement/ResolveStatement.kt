@@ -26,20 +26,18 @@ import com.github.setterwars.compilercourse.codegen.traverser.cell.InMemoryRecor
 import com.github.setterwars.compilercourse.codegen.traverser.cell.load
 import com.github.setterwars.compilercourse.codegen.traverser.cell.store
 import com.github.setterwars.compilercourse.codegen.traverser.cell.toWasmValue
+import com.github.setterwars.compilercourse.codegen.traverser.common.MemoryManager
 import com.github.setterwars.compilercourse.codegen.traverser.common.WasmContext
 import com.github.setterwars.compilercourse.codegen.utils.CodegenException
 import com.github.setterwars.compilercourse.codegen.utils.name
 import com.github.setterwars.compilercourse.parser.nodes.ArrayAccessor
 import com.github.setterwars.compilercourse.parser.nodes.Assignment
-import com.github.setterwars.compilercourse.parser.nodes.Expression
 import com.github.setterwars.compilercourse.parser.nodes.FieldAccessor
 import com.github.setterwars.compilercourse.parser.nodes.ForLoop
 import com.github.setterwars.compilercourse.parser.nodes.IfStatement
-import com.github.setterwars.compilercourse.parser.nodes.ModifiablePrimary
 import com.github.setterwars.compilercourse.parser.nodes.PrintStatement
 import com.github.setterwars.compilercourse.parser.nodes.ReturnStatement
 import com.github.setterwars.compilercourse.parser.nodes.RoutineCall
-import com.github.setterwars.compilercourse.parser.nodes.RoutineCallArgument
 import com.github.setterwars.compilercourse.parser.nodes.Statement
 import com.github.setterwars.compilercourse.parser.nodes.WhileLoop
 
@@ -53,7 +51,12 @@ fun WasmContext.resolveStatement(
         is ForLoop -> TODO()
         is PrintStatement -> TODO()
         is ReturnStatement -> resolveReturnStatement(statement)
+        is IfStatement -> resolveIfStatement(statement)
     }
+    return Block(
+        resultType = null,
+        instructions = instructions,
+    )
 }
 
 fun WasmContext.resolveAssignment(
@@ -149,7 +152,29 @@ fun WasmContext.resolveRoutineCall(
     val routineDescription = declarationManager.resolveRoutine(
         routineCall.routineName.name()
     )
+    add(I32Const(MemoryManager.FRAME_L_ADDR))
+    add(I32Const(MemoryManager.FRAME_L_ADDR))
+    add(I32Load())
+    add(I32Const(MemoryManager.FRAME_R_ADDR))
+    add(I32Const(MemoryManager.FRAME_R_ADDR))
+    add(I32Load())
+
+    add(I32Const(MemoryManager.FRAME_R_ADDR))
+    add(I32Const(MemoryManager.FRAME_R_ADDR))
+    add(I32Load())
+    add(I32Const(1))
+    add(I32Binary(I32BinOp.Add))
+    add(I32Store())
+
+    add(I32Const(MemoryManager.FRAME_L_ADDR))
+    add(I32Const(MemoryManager.FRAME_R_ADDR))
+    add(I32Load())
+    add(I32Store())
+
     add(Call(routineDescription.index))
+
+    add(I32Store())
+    add(I32Store())
 }
 
 fun WasmContext.resolveWhileLoop(
@@ -159,6 +184,7 @@ fun WasmContext.resolveWhileLoop(
         resultType = null,
         instructions = buildList {
             val er = resolveExpression(whileLoop.condition)
+            addAll(er.instructions)
             add(I32Unary(I32UnaryOp.EQZ))
             add(BrIf(1))
             addAll(resolveBody(whileLoop.body))

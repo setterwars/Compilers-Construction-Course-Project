@@ -1,6 +1,7 @@
 package com.github.setterwars.compilercourse.codegen.traverser.cell
 
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.Instr
+import com.github.setterwars.compilercourse.parser.nodes.Expression
 
 sealed interface MemoryReferencable {
     val inMemoryBytesSize: Int
@@ -24,15 +25,11 @@ data class InMemoryArray(
  */
 data class InMemoryRecord(
     val fields: List<RecordField>,
-
-    // Initializer - put the address on stack and execute the instructions
-    // The record will contain instructions
-    // The address WILL BE removed from the stack
-    val initializer: List<Instr>?,
 ) : MemoryReferencable {
     data class RecordField(
         val name: String,
         val cellValueType: CellValueType,
+        val initialValue: Expression?,
     )
 
     override val inMemoryBytesSize: Int

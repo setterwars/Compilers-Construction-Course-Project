@@ -6,6 +6,8 @@ import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Const
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Load
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Store
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.Instr
+import com.github.setterwars.compilercourse.codegen.traverser.cell.CellValueType
+import com.github.setterwars.compilercourse.codegen.traverser.cell.toWasmValue
 
 class MemoryManager {
     companion object {
@@ -34,6 +36,15 @@ class MemoryManager {
             add(I32Const(MEMORY_POINTER_ADDR))
             add(I32Load())
             add(I32Const(n))
+            add(I32Binary(I32BinOp.Add))
+            add(I32Store())
+        }
+
+        fun moveRFrameForCellValueType(cellValueType: CellValueType) = buildList<Instr> {
+            add(I32Const(FRAME_R_ADDR))
+            add(I32Const(FRAME_R_ADDR))
+            add(I32Load())
+            add(I32Const(cellValueType.toWasmValue().bytes))
             add(I32Binary(I32BinOp.Add))
             add(I32Store())
         }

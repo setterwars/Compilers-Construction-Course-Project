@@ -1,6 +1,7 @@
 package com.github.setterwars.compilercourse.codegen.traverser.common
 
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.Block
+import com.github.setterwars.compilercourse.codegen.bytecode.ir.Instr
 import com.github.setterwars.compilercourse.codegen.traverser.cell.CellValueType
 import com.github.setterwars.compilercourse.codegen.traverser.cell.Routine
 import com.github.setterwars.compilercourse.codegen.traverser.cell.Variable

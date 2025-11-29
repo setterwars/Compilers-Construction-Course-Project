@@ -54,6 +54,12 @@ fun Variable.store(
     }
 }
 
+fun Variable.store(
+    putValueOnStack: List<Instr>
+): List<Instr> {
+    return store { putValueOnStack }
+}
+
 // Generate instructions that will load the value of the variable onto the stack
 fun Variable.load(): List<Instr> = buildList {
     when (variableType) {
