@@ -8,8 +8,10 @@ import com.github.setterwars.compilercourse.codegen.bytecode.ir.F64Load
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.F64Store
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32BinOp
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Binary
+import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Compare
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Const
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Load
+import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32RelOp
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Store
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Unary
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32UnaryOp
@@ -24,6 +26,7 @@ import com.github.setterwars.compilercourse.codegen.traverser.cell.CellValueType
 import com.github.setterwars.compilercourse.codegen.traverser.cell.InMemoryArray
 import com.github.setterwars.compilercourse.codegen.traverser.cell.InMemoryRecord
 import com.github.setterwars.compilercourse.codegen.traverser.cell.adjustStackValue
+import com.github.setterwars.compilercourse.codegen.traverser.cell.declareHelperVariable
 import com.github.setterwars.compilercourse.codegen.traverser.cell.load
 import com.github.setterwars.compilercourse.codegen.traverser.cell.store
 import com.github.setterwars.compilercourse.codegen.traverser.cell.toWasmValue
@@ -32,7 +35,6 @@ import com.github.setterwars.compilercourse.codegen.traverser.common.MemoryManag
 import com.github.setterwars.compilercourse.codegen.traverser.common.WasmContext
 import com.github.setterwars.compilercourse.codegen.utils.CodegenException
 import com.github.setterwars.compilercourse.codegen.utils.name
-import com.github.setterwars.compilercourse.codegen.utils.randomString64
 import com.github.setterwars.compilercourse.parser.nodes.ArrayAccessor
 import com.github.setterwars.compilercourse.parser.nodes.Assignment
 import com.github.setterwars.compilercourse.parser.nodes.FieldAccessor
@@ -51,7 +53,7 @@ fun WasmContext.resolveStatement(
         is Assignment -> resolveAssignment(statement)
         is RoutineCall -> resolveRoutineCall(statement)
         is WhileLoop -> resolveWhileLoop(statement)
-        is ForLoop -> TODO()
+        is ForLoop -> resolveForLoop(statement)
         is PrintStatement -> TODO()
         is ReturnStatement -> resolveReturnStatement(statement)
         is IfStatement -> resolveIfStatement(statement)
@@ -208,19 +210,52 @@ fun WasmContext.resolveWhileLoop(
     )
 }
 
-//fun WasmContext.resolveForLoop(
-//    forLoop: ForLoop
-//): List<Instr> = buildList {
-//    val allocatedAddressHolderVariableName = "#allocatedAddressHolderVariableName${randomString64()}"
-//    declarationManager.declareLocalVariable(allocatedAddressHolderVariableName, CellValueType.I32)
-//    addAll(MemoryManager.moveRFrameForCellValueType(CellValueType.I32))
-//    val allocatedAddressHolder = declarationManager.resolveVariable(allocatedAddressHolderVariableName)
-//    addAll(
-//        allocatedAddressHolder.store {
-//            MemoryManager.allocateBytes(memoryReferencable.inMemoryBytesSize)
-//        }
-//    )
-//}
+fun WasmContext.resolveForLoop(
+    forLoop: ForLoop
+): List<Instr> = buildList {
+    declarationManager.enterScope()
+    declarationManager.declareLocalVariable(
+        forLoop.loopVariable.name(),
+        CellValueType.I32
+    )
+    val loopIndexHolder = declarationManager.resolveVariable(forLoop.loopVariable.name())
+    addAll(MemoryManager.moveRFrameForCellValueType(CellValueType.I32))
+    addAll(loopIndexHolder.store(resolveExpression(forLoop.range.begin).instructions))
+    add(
+        Loop(
+            resultType = null,
+            instructions = buildList {
+                if (forLoop.range.end != null) {
+                    addAll(loopIndexHolder.load())
+                    addAll(resolveExpression(forLoop.range.end).instructions)
+                    if (forLoop.reverse) {
+                        add(I32Compare(I32RelOp.GeS))
+                    } else {
+                        add(I32Compare(I32RelOp.LeS))
+                    }
+                    add(I32Unary(I32UnaryOp.EQZ))
+                    add(BrIf(1))
+                }
+                addAll(resolveBody(forLoop.body))
+                addAll(
+                    loopIndexHolder.store {
+                        buildList {
+                            addAll(loopIndexHolder.load())
+                            add(I32Const(1))
+                            if (forLoop.reverse) {
+                                add(I32Binary(I32BinOp.Sub))
+                            } else {
+                                add(I32Binary(I32BinOp.Add))
+                            }
+                        }
+                    }
+                )
+                add(Br(0))
+            }
+        )
+    )
+    declarationManager.exitScope()
+}
 
 fun WasmContext.resolveReturnStatement(
     returnStatement: ReturnStatement
