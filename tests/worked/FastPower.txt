@@ -1,0 +1,12 @@
+routine fastPower(a: integer, n: integer): integer is
+    if n = 0 then
+        return 1
+    else
+        var p is fastPower(a, n / 2)
+        if n % 2 = 0 then
+            return p * p
+        else
+            return p * p * a
+        end
+    end
+end
