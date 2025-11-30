@@ -17,7 +17,7 @@ private const val PAGE_SIZE = (1 shl 10) * 64
 class WasmIRGenerator {
     val wasmContext = WasmContext()
 
-    fun generateWasmIr(program: Program): WasmModule {
+    fun generateWasmModule(program: Program): WasmModule {
         val definitions = wasmContext.resolveProgram(program)
         val globals = wasmContext.declarationManager.getGlobals()
         val mainFunc = WasmFunc(

@@ -1,6 +1,5 @@
 package com.github.setterwars.compilercourse.codegen.traverser.cell
 
-import com.github.setterwars.compilercourse.codegen.bytecode.ir.Instr
 import com.github.setterwars.compilercourse.parser.nodes.Expression
 
 sealed interface MemoryReferencable {
@@ -9,7 +8,7 @@ sealed interface MemoryReferencable {
 
 /**
  * Arrays are *always* stored in the memory
- * The array is a contiguous and compile-time known number of cells of certain type
+ * The array is a contiguous number of cells of certain type
  */
 data class InMemoryArray(
     val size: Int?,

@@ -4,7 +4,9 @@ import com.github.setterwars.compilercourse.codegen.bytecode.ir.Block
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.Instr
 import com.github.setterwars.compilercourse.codegen.traverser.ast.expression.resolveExpression
 import com.github.setterwars.compilercourse.codegen.traverser.ast.type.resolveCellValueType
+import com.github.setterwars.compilercourse.codegen.traverser.cell.CellValueType
 import com.github.setterwars.compilercourse.codegen.traverser.cell.MemoryReferencable
+import com.github.setterwars.compilercourse.codegen.traverser.cell.adjustStackValue
 import com.github.setterwars.compilercourse.codegen.traverser.cell.store
 import com.github.setterwars.compilercourse.codegen.traverser.common.MemoryManager
 import com.github.setterwars.compilercourse.codegen.traverser.common.WasmContext
@@ -39,7 +41,11 @@ fun WasmContext.resolveVariableDeclarationNoType(
         declarationManager.declareGlobalVariable(name, er.onStackValueType)
     }
     val variable = declarationManager.resolveVariable(name)
-    initializerInstructions.addAll(variable.store(er.instructions))
+    val putValueInitialValueOnStack = buildList {
+        addAll(er.instructions)
+        addAll(adjustStackValue(variable.cellValueType, er.onStackValueType))
+    }
+    initializerInstructions.addAll(variable.store(putValueInitialValueOnStack))
     val initializerBlock = Block(
         null,
         instructions = initializerInstructions,
@@ -68,17 +74,16 @@ fun WasmContext.resolveVariableDeclarationWithType(
     }
     val variable = declarationManager.resolveVariable(name)
 
-    if (variable.cellValueType is MemoryReferencable) {
-        initializerInstructions.addAll(
-            variable.store(
-                createInitializerForMemoryReferencable(variable.cellValueType)
-            )
-        )
-    } else if (variableDeclarationWithType.initialValue != null) {
-        val er = resolveExpression(variableDeclarationWithType.initialValue)
-        initializerInstructions.addAll(variable.store(er.instructions))
+    val putValueInitialValueOnStack: List<Instr> = buildList {
+        if (variable.cellValueType is CellValueType.MemoryReference) {
+            addAll(createInitializerForMemoryReferencable(variable.cellValueType.referencable))
+        } else if (variableDeclarationWithType.initialValue != null) {
+            val er = resolveExpression(variableDeclarationWithType.initialValue)
+            addAll(er.instructions)
+            addAll(adjustStackValue(variable.cellValueType, er.onStackValueType))
+        }
     }
-
+    initializerInstructions.addAll(variable.store(putValueInitialValueOnStack))
     val initializerBlock = Block(
         null,
         initializerInstructions,

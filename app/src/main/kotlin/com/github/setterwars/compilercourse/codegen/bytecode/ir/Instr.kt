@@ -71,6 +71,7 @@ enum class F64RelOp {
 data class F64Compare(val op: F64RelOp) : Instr
 
 object I32ToF64S : Instr
+object F64ToI32S : Instr
 
 // Globals
 data class GlobalGet(val index: Int) : Instr

@@ -1,4 +1,3 @@
-routine main(x: integer, y: integer) is
-    var c : integer
-    c := x * x + y * y
+routine main(a: integer, b: integer) : integer is
+    return a + b
 end

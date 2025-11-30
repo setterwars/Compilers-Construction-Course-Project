@@ -13,8 +13,11 @@ import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Unary
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32UnaryOp
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.Instr
 import com.github.setterwars.compilercourse.codegen.traverser.ast.modifiablePrimary.resolveModifiablePrimary
+import com.github.setterwars.compilercourse.codegen.traverser.ast.statement.resolveRoutineCall
 import com.github.setterwars.compilercourse.codegen.traverser.common.WasmContext
 import com.github.setterwars.compilercourse.codegen.utils.CodegenException
+import com.github.setterwars.compilercourse.codegen.utils.name
+import com.github.setterwars.compilercourse.codegen.utils.toInt
 import com.github.setterwars.compilercourse.parser.nodes.BooleanLiteral
 import com.github.setterwars.compilercourse.parser.nodes.Expression
 import com.github.setterwars.compilercourse.parser.nodes.ExpressionInParenthesis
@@ -35,13 +38,43 @@ import com.github.setterwars.compilercourse.parser.nodes.UnaryModifiablePrimary
 import com.github.setterwars.compilercourse.parser.nodes.UnaryNot
 import com.github.setterwars.compilercourse.parser.nodes.UnaryReal
 import com.github.setterwars.compilercourse.parser.nodes.UnarySign
+import com.github.setterwars.compilercourse.semantic.CompileTimeBoolean
+import com.github.setterwars.compilercourse.semantic.CompileTimeDouble
+import com.github.setterwars.compilercourse.semantic.CompileTimeInteger
+import kotlin.math.exp
 
 data class ExpressionResult(
     val onStackValue: CellValueType,
     val block: Block
 )
 
-fun WasmContext.resolveExpression(expression: Expression): ApplyOperatorResult {
+fun WasmContext.resolveExpression(expression: Expression, forceCompileTimeValue: Boolean = false): ApplyOperatorResult {
+    val expressionData = expression.data
+    if (expressionData != null && expressionData.compileTimeValue != null && forceCompileTimeValue) {
+        return when (expressionData.compileTimeValue) {
+            is CompileTimeInteger -> {
+                ApplyOperatorResult(
+                    onStackValueType = CellValueType.I32,
+                    instructions = listOf(I32Const(expressionData.compileTimeValue.value))
+                )
+            }
+
+            is CompileTimeDouble -> {
+                ApplyOperatorResult(
+                    onStackValueType = CellValueType.F64,
+                    instructions = listOf(F64Const(expressionData.compileTimeValue.value))
+                )
+            }
+
+            is CompileTimeBoolean -> {
+                ApplyOperatorResult(
+                    onStackValueType = CellValueType.I32Boolean,
+                    instructions = listOf(I32Const(expressionData.compileTimeValue.value.toInt()))
+                )
+            }
+        }
+    }
+
     val iss = mutableListOf<Instr>()
     var res = generateRelation(expression.relation)
     iss.addAll(res.instructions)
@@ -162,7 +195,7 @@ fun WasmContext.generatePrimary(primary: Primary): ApplyOperatorResult {
             return ApplyOperatorResult(
                 onStackValueType = CellValueType.I32,
                 instructions = listOf(
-                    I32Load(primary.data?.value ?: throw CodegenException())
+                    I32Const(primary.data?.value ?: throw CodegenException())
                 )
             )
         }
@@ -235,15 +268,10 @@ fun WasmContext.generatePrimary(primary: Primary): ApplyOperatorResult {
         }
 
         is RoutineCall -> {
-            TODO()
-        }
-
-        else -> {
-            TODO()
+            return ApplyOperatorResult(
+                onStackValueType = declarationManager.resolveRoutine(primary.routineName.name()).returnValueType!!,
+                instructions = resolveRoutineCall(primary),
+            )
         }
     }
 }
-
-fun IntegerLiteral.getInt() = token.lexeme.toInt()
-
-fun RealLiteral.getDouble() = token.lexeme.toDouble()

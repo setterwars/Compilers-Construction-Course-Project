@@ -12,8 +12,13 @@ class GlobalVariablesManager {
     val initializers = mutableMapOf<String, Block>()
 
     init {
-        declareGlobalVariable("#reserved_i32", CellValueType.I32)
-        declareGlobalVariable("#reserved_f64", CellValueType.F64)
+        for (reservedGlobal in ReservedGlobals.entries) {
+            globalVariables[reservedGlobal.nameOfGlobal] = Variable(
+                name = reservedGlobal.nameOfGlobal,
+                cellValueType = reservedGlobal.cellValueType,
+                variableType = VariableType.Global(index = reservedGlobal.ordinal)
+            )
+        }
     }
 
     fun declareGlobalVariable(
@@ -37,8 +42,8 @@ class GlobalVariablesManager {
         initializers[name] = initializer
     }
 
-    companion object {
-        const val RESERVED_I32 = "#reserved_i32"
-        const val RESERVED_F64 = "#reserved_f64"
+    enum class ReservedGlobals(val nameOfGlobal: String, val cellValueType: CellValueType) {
+        I32("#reserved_i32", CellValueType.I32),
+        F64("#reserved_f64", CellValueType.F64)
     }
 }

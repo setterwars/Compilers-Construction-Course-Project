@@ -35,8 +35,8 @@ class DeclarationManager {
     }
 
     fun enterRoutine(name: String) {
-        if (currentRoutine == null) {
-            throw CodegenException()
+        if (currentRoutine != null) {
+            throw CodegenException("Already in routine")
         }
         currentRoutineFunctionPointer = 0
         currentRoutine = name

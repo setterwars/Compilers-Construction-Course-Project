@@ -23,9 +23,11 @@ import com.github.setterwars.compilercourse.codegen.traverser.ast.expression.res
 import com.github.setterwars.compilercourse.codegen.traverser.cell.CellValueType
 import com.github.setterwars.compilercourse.codegen.traverser.cell.InMemoryArray
 import com.github.setterwars.compilercourse.codegen.traverser.cell.InMemoryRecord
+import com.github.setterwars.compilercourse.codegen.traverser.cell.adjustStackValue
 import com.github.setterwars.compilercourse.codegen.traverser.cell.load
 import com.github.setterwars.compilercourse.codegen.traverser.cell.store
 import com.github.setterwars.compilercourse.codegen.traverser.cell.toWasmValue
+import com.github.setterwars.compilercourse.codegen.traverser.common.GlobalVariablesManager
 import com.github.setterwars.compilercourse.codegen.traverser.common.MemoryManager
 import com.github.setterwars.compilercourse.codegen.traverser.common.WasmContext
 import com.github.setterwars.compilercourse.codegen.utils.CodegenException
@@ -64,11 +66,15 @@ fun WasmContext.resolveAssignment(
 ): List<Instr> {
     val variable = declarationManager.resolveVariable(assignment.modifiablePrimary.variable.name())
     val er = resolveExpression(assignment.expression)
-    return if (assignment.modifiablePrimary.accessors == null || assignment.modifiablePrimary.accessors.isEmpty()) {
-        variable.store(er.instructions)
+    return if (assignment.modifiablePrimary.accessors.isEmpty()) {
+        variable.store {
+            buildList {
+                addAll(er.instructions)
+                addAll(adjustStackValue(variable.cellValueType, er.onStackValueType))
+            }
+        }
     } else {
         val iss = mutableListOf<Instr>()
-        iss.addAll(er.instructions)
         iss.addAll(variable.load())
         var currentCellValueTypeOnStack = variable.cellValueType
         for ((index, accessor) in assignment.modifiablePrimary.accessors.withIndex()) {
@@ -121,9 +127,11 @@ fun WasmContext.resolveAssignment(
             }
             iss.addAll(accessorInstrs)
         }
-        when (er.onStackValueType.toWasmValue()) {
-            WasmValue.I32 -> I32Store()
-            WasmValue.F64 -> F64Store()
+        iss.addAll(er.instructions)
+        iss.addAll(adjustStackValue(currentCellValueTypeOnStack, er.onStackValueType))
+        when (currentCellValueTypeOnStack.toWasmValue()) {
+            WasmValue.I32 -> iss.add(I32Store())
+            WasmValue.F64 -> iss.add(F64Store())
         }
         iss
     }
@@ -143,62 +151,68 @@ fun WasmContext.resolveIfStatement(ifStatement: IfStatement): List<Instr> {
     }
 }
 
+// TODO: resolve variadic calls
 fun WasmContext.resolveRoutineCall(
     routineCall: RoutineCall
 ): List<Instr> = buildList {
-    for (arg in routineCall.arguments) {
-        addAll(resolveExpression(arg.expression).instructions)
+    add(I32Const(MemoryManager.FRAME_L_ADDR))
+    add(I32Const(MemoryManager.FRAME_L_ADDR))
+    add(I32Load())
+    add(I32Const(MemoryManager.FRAME_R_ADDR))
+    add(I32Const(MemoryManager.FRAME_R_ADDR))
+    add(I32Load())
+
+    add(I32Const(MemoryManager.FRAME_L_ADDR))
+    add(I32Const(MemoryManager.FRAME_R_ADDR))
+    add(I32Load())
+    add(I32Store())
+
+    val routine = declarationManager.resolveRoutine(routineCall.routineName.name())
+    for ((i, arg) in routineCall.arguments.withIndex()) {
+        val er = resolveExpression(arg.expression)
+        addAll(er.instructions)
+        addAll(adjustStackValue(routine.parameters[i].cellValueType, er.onStackValueType))
     }
-    val routineDescription = declarationManager.resolveRoutine(
-        routineCall.routineName.name()
-    )
-    add(I32Const(MemoryManager.FRAME_L_ADDR))
-    add(I32Const(MemoryManager.FRAME_L_ADDR))
-    add(I32Load())
-    add(I32Const(MemoryManager.FRAME_R_ADDR))
-    add(I32Const(MemoryManager.FRAME_R_ADDR))
-    add(I32Load())
+    add(Call(routine.index))
 
-    add(I32Const(MemoryManager.FRAME_R_ADDR))
-    add(I32Const(MemoryManager.FRAME_R_ADDR))
-    add(I32Load())
-    add(I32Const(1))
-    add(I32Binary(I32BinOp.Add))
-    add(I32Store())
-
-    add(I32Const(MemoryManager.FRAME_L_ADDR))
-    add(I32Const(MemoryManager.FRAME_R_ADDR))
-    add(I32Load())
-    add(I32Store())
-
-    add(Call(routineDescription.index))
-
+    // Frame pointer restoration. Move the return value from the function to the temporary storage
+    val reservedGlobal = when (routine.returnValueType?.toWasmValue()) {
+        WasmValue.I32 -> declarationManager.resolveVariable(GlobalVariablesManager.ReservedGlobals.I32.nameOfGlobal)
+        WasmValue.F64 -> declarationManager.resolveVariable(GlobalVariablesManager.ReservedGlobals.F64.nameOfGlobal)
+        null -> null
+    }
+    addAll(reservedGlobal?.store(emptyList()) ?: emptyList())
     add(I32Store())
     add(I32Store())
+    addAll(reservedGlobal?.load() ?: emptyList())
 }
 
 fun WasmContext.resolveWhileLoop(
     whileLoop: WhileLoop
 ): List<Instr> = buildList {
-    Loop(
-        resultType = null,
-        instructions = buildList {
-            val er = resolveExpression(whileLoop.condition)
-            addAll(er.instructions)
-            add(I32Unary(I32UnaryOp.EQZ))
-            add(BrIf(1))
-            addAll(resolveBody(whileLoop.body))
-            add(Br(0))
-        }
+    add(
+        Loop(
+            resultType = null,
+            instructions = buildList {
+                val er = resolveExpression(whileLoop.condition)
+                addAll(er.instructions)
+                add(I32Unary(I32UnaryOp.EQZ))
+                add(BrIf(1))
+                addAll(resolveBody(whileLoop.body))
+                add(Br(0))
+            }
+        )
     )
 }
 
 fun WasmContext.resolveReturnStatement(
     returnStatement: ReturnStatement
 ): List<Instr> = buildList {
+    val routine = declarationManager.resolveRoutine(declarationManager.currentRoutine!!)
     returnStatement.expression?.let {
         val er = resolveExpression(it)
         addAll(er.instructions)
+        addAll(adjustStackValue(routine.returnValueType!!, er.onStackValueType))
     }
     add(Return)
 }

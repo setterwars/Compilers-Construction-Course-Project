@@ -1,16 +1,26 @@
 package com.github.setterwars.compilercourse.codegen.traverser.ast.routine
 
+import com.github.setterwars.compilercourse.codegen.bytecode.ir.Block
+import com.github.setterwars.compilercourse.codegen.bytecode.ir.F64Const
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.FuncType
+import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Const
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.Instr
+import com.github.setterwars.compilercourse.codegen.bytecode.ir.Return
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.WasmFunc
+import com.github.setterwars.compilercourse.codegen.bytecode.ir.WasmValue
+import com.github.setterwars.compilercourse.codegen.traverser.ast.body.resolveBody
+import com.github.setterwars.compilercourse.codegen.traverser.ast.expression.resolveExpression
 import com.github.setterwars.compilercourse.codegen.traverser.ast.type.resolveCellValueType
 import com.github.setterwars.compilercourse.codegen.traverser.cell.Routine
+import com.github.setterwars.compilercourse.codegen.traverser.cell.adjustStackValue
 import com.github.setterwars.compilercourse.codegen.traverser.cell.toWasmValue
 import com.github.setterwars.compilercourse.codegen.traverser.common.WasmContext
 import com.github.setterwars.compilercourse.codegen.utils.name
+import com.github.setterwars.compilercourse.parser.nodes.FullRoutineBody
 import com.github.setterwars.compilercourse.parser.nodes.RoutineBody
 import com.github.setterwars.compilercourse.parser.nodes.RoutineDeclaration
 import com.github.setterwars.compilercourse.parser.nodes.RoutineHeader
+import com.github.setterwars.compilercourse.parser.nodes.SingleExpressionBody
 
 fun WasmContext.resolveRoutineDeclaration(
     routineDeclaration: RoutineDeclaration
@@ -51,5 +61,25 @@ fun WasmContext.resolveRoutineHeader(
 fun WasmContext.resolveRoutineBody(
     body: RoutineBody,
 ): List<Instr> {
-    TODO()
+    val routine = declarationManager.resolveRoutine(declarationManager.currentRoutine!!)
+    return when (body) {
+        is FullRoutineBody -> buildList {
+            addAll(resolveBody(body.body))
+            when (routine.returnValueType?.toWasmValue()) {
+                WasmValue.I32 -> add(Block(WasmValue.I32, listOf(I32Const(0))))
+                WasmValue.F64 -> add(Block(WasmValue.F64, listOf(F64Const(0.0))))
+                null -> {}
+            }
+        }
+        is SingleExpressionBody -> resolveSingleExpressionBody(body)
+    }
+}
+
+fun WasmContext.resolveSingleExpressionBody(singleExpressionBody: SingleExpressionBody): List<Instr> = buildList {
+    val routine = declarationManager.resolveRoutine(declarationManager.currentRoutine!!)
+    singleExpressionBody.expression.let {
+        val er = resolveExpression(it)
+        addAll(er.instructions)
+        adjustStackValue(routine.returnValueType!!, er.onStackValueType)
+    }
 }

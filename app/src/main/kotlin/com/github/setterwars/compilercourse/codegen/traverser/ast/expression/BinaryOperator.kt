@@ -7,6 +7,8 @@ import com.github.setterwars.compilercourse.codegen.bytecode.ir.F64Compare
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.F64Load
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.F64RelOp
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.F64Store
+import com.github.setterwars.compilercourse.codegen.bytecode.ir.GlobalGet
+import com.github.setterwars.compilercourse.codegen.bytecode.ir.GlobalSet
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32BinOp
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Binary
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Compare
@@ -16,6 +18,7 @@ import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32ToF64S
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.Instr
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.WasmValue
 import com.github.setterwars.compilercourse.codegen.traverser.cell.toWasmValue
+import com.github.setterwars.compilercourse.codegen.traverser.common.GlobalVariablesManager
 import com.github.setterwars.compilercourse.codegen.traverser.common.MemoryManager
 import com.github.setterwars.compilercourse.codegen.utils.CodegenException
 
@@ -48,13 +51,11 @@ fun createOperator(
                 throw CodegenException()
             }
             if (op1Type.toWasmValue() == WasmValue.F64 && op2Type.toWasmValue() == WasmValue.I32) {
-                iss.add(I32ToF64S) // convert top value on the stack from f64 to i32
+                iss.add(I32ToF64S) // convert top value on the stack from i32 to f64
             } else if (op1Type.toWasmValue() == WasmValue.I32 && op2Type.toWasmValue() == WasmValue.F64) {
-                iss.add(I32Const(MemoryManager.RESERVED_F64_ADDR))
-                iss.add(F64Store())
+                iss.add(GlobalSet(GlobalVariablesManager.ReservedGlobals.F64.ordinal))
                 iss.add(I32ToF64S)
-                iss.add(I32Const(MemoryManager.RESERVED_F64_ADDR))
-                iss.add(F64Load())
+                iss.add(GlobalGet(GlobalVariablesManager.ReservedGlobals.F64.ordinal))
             }
             if (op1Type.toWasmValue() == WasmValue.F64 || op2Type.toWasmValue() == WasmValue.F64) {
                 iss.add(onF64!!)

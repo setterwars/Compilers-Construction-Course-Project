@@ -3,9 +3,7 @@ package com.github.setterwars.compilercourse.codegen.traverser.cell
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.F64Load
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.F64Store
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.GlobalGet
-import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32BinOp
-import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Binary
-import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Const
+import com.github.setterwars.compilercourse.codegen.bytecode.ir.GlobalSet
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Load
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Store
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.Instr
@@ -51,7 +49,7 @@ fun Variable.store(
         }
         is VariableType.Global -> {
             addAll(putValueOnStack())
-            add(GlobalGet(variableType.index))
+            add(GlobalSet(variableType.index))
         }
     }
 }

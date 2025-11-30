@@ -1,5 +1,29 @@
-routine main(x: integer, y: integer) is
-    var c : integer
-    c := x * x + y * y
-    return c
+type Point is record
+    var x: real
+    var y: real
+end
+
+routine squareRoot(a: real): real is
+    var low : real is 0.0
+    var high : real is 1000000000.0
+    while low + 0.000001 < high loop
+        var mid : real is (low + high) / 2
+        if mid * mid <= a then
+            low := mid
+        else
+            high := mid
+        end
+    end
+    return low
+end
+
+routine euclideanDistance(p1x: real, p1y: real, p2x: real, p2y: real): real is
+    var p1 : Point
+    var p2 : Point
+    p1.x := p1x
+    p1.y := p1y
+    p2.x := p2x
+    p2.y := p2y
+
+    return squareRoot(2.0)
 end

@@ -16,6 +16,7 @@ import com.github.setterwars.compilercourse.codegen.bytecode.ir.F64Const
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.F64Load
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.F64RelOp
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.F64Store
+import com.github.setterwars.compilercourse.codegen.bytecode.ir.F64ToI32S
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32BinOp
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Binary
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Compare
@@ -301,6 +302,10 @@ fun WasmWriter.writeInstr(instr: Instr) {
 
         is I32ToF64S -> {
             u8(0xB7) // f64.convert_i32_s
+        }
+
+        is F64ToI32S -> {
+            u8(0xAA) // i32.trunc_f64_s
         }
     }
 }

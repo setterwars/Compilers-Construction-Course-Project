@@ -14,7 +14,7 @@ fun WasmContext.resolveBody(body: Body): List<Instr> {
     val result = buildList<Instr> {
         for (bodyElement in body.bodyElements) {
             when (bodyElement) {
-                is Statement -> resolveStatement(bodyElement)
+                is Statement -> add(resolveStatement(bodyElement))
                 is VariableDeclaration -> add(resolveVariableDeclaration(bodyElement).initializerBlock!!)
                 is TypeDeclaration -> {}
             }
