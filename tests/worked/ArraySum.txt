@@ -1,14 +1,16 @@
+routine calculateSum(n : integer, a : array [] integer): integer
+
 routine main(x1: integer, x2: integer, x3: integer, x4: integer, x5: integer): integer is
-    var a : array[5]
-    a[1] = x1
-    a[2] = x2
-    a[3] = x3
-    a[4] = x4
-    a[5] = x5
+    var a : array [5] integer
+    a[1] := x1
+    a[2] := x2
+    a[3] := x3
+    a[4] := x4
+    a[5] := x5
     return calculateSum(5, a)
 end
 
-routine calculateSum(n : integer, a : array[]) is
+routine calculateSum(n : integer, a : array [] integer): integer is
     if n = 0 then
         return 0
     end
