@@ -14,18 +14,17 @@ class RoutinesManager {
         returnValueType: CellValueType?,
         parameters: List<Routine.Parameter>
     ) {
-        if (name in routines.keys) {
-            val r = routines[name]!!
+        val r = routines[name]
+        if (r != null) {
             if (r.returnValueType != returnValueType && r.parameters != parameters) {
                 throw CodegenException()
             }
-
         }
         routines[name] = Routine(
             name = name,
             returnValueType = returnValueType,
             parameters = parameters,
-            index = routines.size,
+            index = r?.index ?: routines.size
         )
     }
 

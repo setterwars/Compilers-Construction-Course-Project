@@ -121,18 +121,10 @@ ModifiablePrimary
 
 ## Notes:
 ### Variadic functions and variable-sized arrays
-Variadic functions are implemented by adding two special parameters to the
-of the parameter list:
-- The second-to-last `integer` parameter denotes the number of variadic parameters
-- The last `array [] <type>` is a variadic parameter
+The `array[]` parameter in the function declaration 
+simply means "some array pointer with unknown size"
 
-Moreover, this is the only place where the variable-sized array type can be used
-
-**Example:**
-```
-routine foo(a: real, count: integer, points: array [] Point) is 
-    ...
-end
+The sizeless array can only be used inside the function parameters
 ```
 
 ### Calling a function that contains record or array 

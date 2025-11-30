@@ -97,4 +97,3 @@ fun WasmContext.resolveVariableDeclarationWithType(
     }
     return VariableDeclarationResolveResult(initializerBlock)
 }
-

@@ -11,6 +11,8 @@ import com.github.setterwars.compilercourse.codegen.bytecode.ir.LocalGet
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.LocalSet
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.WasmValue
 import com.github.setterwars.compilercourse.codegen.traverser.common.MemoryManager
+import com.github.setterwars.compilercourse.codegen.traverser.common.WasmContext
+import com.github.setterwars.compilercourse.codegen.utils.randomString64
 
 /**
  * "Variable" - is anything that has a) name b) reserved place in some cell (globals, locals, memory)
@@ -77,4 +79,15 @@ fun Variable.load(): List<Instr> = buildList {
             add(GlobalGet(variableType.index))
         }
     }
+}
+
+fun WasmContext.declareHelperVariable(
+    prefixName: String,
+    cellValueType: CellValueType,
+): Pair<Variable, List<Instr>> {
+    val helperVariableName = "#$prefixName${randomString64()}"
+    declarationManager.declareLocalVariable(helperVariableName, cellValueType)
+    val instructions = MemoryManager.moveRFrameForCellValueType(CellValueType.I32)
+    val helperVariable = declarationManager.resolveVariable(helperVariableName)
+    return helperVariable to instructions
 }

@@ -1,11 +1,9 @@
 package com.github.setterwars.compilercourse.parser.nodes
 
-import com.github.setterwars.compilercourse.semantic.semanticData.RoutineDeclarationSemanticData
-
 data class RoutineDeclaration(
     val header: RoutineHeader,
     val body: RoutineBody?,
-) : Declaration, SemanticDataHolder<RoutineDeclarationSemanticData>()
+) : Declaration
 
 data class RoutineHeader(
     val name: Identifier,

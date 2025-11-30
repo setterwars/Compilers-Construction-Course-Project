@@ -32,6 +32,7 @@ import com.github.setterwars.compilercourse.codegen.traverser.common.MemoryManag
 import com.github.setterwars.compilercourse.codegen.traverser.common.WasmContext
 import com.github.setterwars.compilercourse.codegen.utils.CodegenException
 import com.github.setterwars.compilercourse.codegen.utils.name
+import com.github.setterwars.compilercourse.codegen.utils.randomString64
 import com.github.setterwars.compilercourse.parser.nodes.ArrayAccessor
 import com.github.setterwars.compilercourse.parser.nodes.Assignment
 import com.github.setterwars.compilercourse.parser.nodes.FieldAccessor
@@ -206,6 +207,20 @@ fun WasmContext.resolveWhileLoop(
         )
     )
 }
+
+//fun WasmContext.resolveForLoop(
+//    forLoop: ForLoop
+//): List<Instr> = buildList {
+//    val allocatedAddressHolderVariableName = "#allocatedAddressHolderVariableName${randomString64()}"
+//    declarationManager.declareLocalVariable(allocatedAddressHolderVariableName, CellValueType.I32)
+//    addAll(MemoryManager.moveRFrameForCellValueType(CellValueType.I32))
+//    val allocatedAddressHolder = declarationManager.resolveVariable(allocatedAddressHolderVariableName)
+//    addAll(
+//        allocatedAddressHolder.store {
+//            MemoryManager.allocateBytes(memoryReferencable.inMemoryBytesSize)
+//        }
+//    )
+//}
 
 fun WasmContext.resolveReturnStatement(
     returnStatement: ReturnStatement

@@ -5,9 +5,9 @@ import com.github.setterwars.compilercourse.parser.nodes.*
 import com.github.setterwars.compilercourse.semantic.semanticData.DeclaredTypeSemanticData
 import com.github.setterwars.compilercourse.semantic.semanticData.ExpressionSemanticData
 import com.github.setterwars.compilercourse.semantic.semanticData.ModifiablePrimarySemanticData
-import com.github.setterwars.compilercourse.semantic.semanticData.RoutineDeclarationSemanticData
 import com.github.setterwars.compilercourse.semantic.semanticData.UnaryIntegerSemanticData
 import com.github.setterwars.compilercourse.semantic.semanticData.UnaryRealSemanticData
+import kotlin.math.exp
 
 class SemanticException(
     message: String = "",
@@ -38,9 +38,6 @@ class SemanticAnalyzer {
 
     private fun analyzeTypeDeclaration(td: TypeDeclaration) {
         val name = td.identifier.token.lexeme
-        if (currentScope.isDeclaredInCurrentScope(name)) {
-            throw SemanticException("Type '$name' already declared", td.identifier.token.span.line)
-        }
         val resolved = analyzeType(td.type)
         val typeNode = if (td.type !is DeclaredType) {
             td.type
@@ -53,26 +50,14 @@ class SemanticAnalyzer {
     private fun analyzeRoutineDeclaration(rd: RoutineDeclaration) {
         val header = rd.header
         val name = header.name.token.lexeme
-        if (globalScope.isDeclaredInCurrentScope(name)) {
-            throw SemanticException("Routine '$name' already declared", header.name.token.span.line)
+
+        val params = rd.header.parameters.parameters.map { pd ->
+            analyzeType(pd.type, inParams = true)
         }
 
-        val params = rd.header.parameters.parameters.withIndex().map { (index, pd) ->
-            analyzeType(pd.type, isLastParamPosInFunctionArgs = (index + 1 == rd.header.parameters.parameters.size))
-        }
-        rd.data = RoutineDeclarationSemanticData(isVariadic = false)
-        if (params.isNotEmpty()) {
-            val lastParam = params.last()
-            if (lastParam is SemanticType.Array && lastParam.size == null) {
-                if (params.size < 2 || params[params.size - 2] !is SemanticType.Integer) {
-                    throw SemanticException("variadic")
-                }
-                rd.data = RoutineDeclarationSemanticData(isVariadic = true)
-            }
-        }
         val ret = header.returnType?.let { analyzeType(it) }
 
-        globalScope.declareRoutine(name, RoutineSymbol(params, ret, rd, variadic = rd.data?.isVariadic == true))
+        globalScope.declareRoutine(name, RoutineSymbol(params, ret, rd))
 
         // Body
         rd.body?.let { body ->
@@ -111,12 +96,6 @@ class SemanticAnalyzer {
         when (vd) {
             is VariableDeclarationWithType -> {
                 val name = vd.identifier.token.lexeme
-                if (currentScope.isDeclaredInCurrentScope(name)) {
-                    throw SemanticException(
-                        "Variable '$name' already declared in this scope",
-                        vd.identifier.token.span.line
-                    )
-                }
                 val declared = analyzeType(vd.type)
                 val cv = vd.initialValue?.let { iv ->
                     val (t, c) = analyzeExpression(iv)
@@ -130,12 +109,6 @@ class SemanticAnalyzer {
 
             is VariableDeclarationNoType -> {
                 val name = vd.identifier.token.lexeme
-                if (currentScope.isDeclaredInCurrentScope(name)) {
-                    throw SemanticException(
-                        "Variable '$name' already declared in this scope",
-                        vd.identifier.token.span.line
-                    )
-                }
                 val (t, cv) = analyzeExpression(vd.initialValue)
                 currentScope.declareVariable(name, t, cv)
             }
@@ -194,40 +167,17 @@ class SemanticAnalyzer {
             "Call to undeclared routine '$name'",
             call.routineName.token.span.line
         )
-        if (sym.variadic) {
-            for (i in 0 until sym.parameterTypes.size - 1) {
-                val at = analyzeExpression(call.arguments[i].expression).first
-                val pt = sym.parameterTypes[i]
-                if (!assignable(pt, at)) {
-                    throw SemanticException(
-                        "Argument ${i + 1} type mismatch for '$name'",
-                        call.routineName.token.span.line
-                    )
-                }
-            }
-            for (i in sym.parameterTypes.size - 1 until call.arguments.size) {
-                val at = analyzeExpression(call.arguments[i].expression).first
-                val pt = (sym.parameterTypes.last() as SemanticType.Array).elementType
-                if (!assignable(pt, at)) {
-                    throw SemanticException(
-                        "Argument ${i + 1} type mismatch for '$name'",
-                        call.routineName.token.span.line
-                    )
-                }
-            }
-        } else {
-            if (call.arguments.size != sym.parameterTypes.size) {
-                throw SemanticException("Wrong number of arguments for '$name'", call.routineName.token.span.line)
-            }
-            for (i in 0 until call.arguments.size) {
-                val at = analyzeExpression(call.arguments[i].expression).first
-                val pt = sym.parameterTypes[i]
-                if (!assignable(pt, at)) {
-                    throw SemanticException(
-                        "Argument ${i + 1} type mismatch for '$name'",
-                        call.routineName.token.span.line
-                    )
-                }
+        if (call.arguments.size != sym.parameterTypes.size) {
+            throw SemanticException("Wrong number of arguments for '$name'", call.routineName.token.span.line)
+        }
+        for (i in 0 until call.arguments.size) {
+            val at = analyzeExpression(call.arguments[i].expression).first
+            val pt = sym.parameterTypes[i]
+            if (!assignable(pt, at)) {
+                throw SemanticException(
+                    "Argument ${i + 1} type mismatch for '$name'",
+                    call.routineName.token.span.line
+                )
             }
         }
         return sym.returnType
@@ -511,7 +461,7 @@ class SemanticAnalyzer {
 
     // ---------------- Types ----------------
 
-    private fun analyzeType(t: Type, isLastParamPosInFunctionArgs: Boolean = false): SemanticType {
+    private fun analyzeType(t: Type, inParams: Boolean = false): SemanticType {
         val resolvedType = when (t) {
             PrimitiveType.INTEGER -> SemanticType.Integer
             PrimitiveType.REAL -> SemanticType.Real
@@ -526,19 +476,19 @@ class SemanticAnalyzer {
                 td.semanticType
             }
 
-            is ArrayType -> analyzeArrayType(t, isLastParamPosInFunctionArgs)
+            is ArrayType -> analyzeArrayType(t, inParams)
             is RecordType -> analyzeRecordType(t)
         }
         return resolvedType
     }
 
-    private fun analyzeArrayType(at: ArrayType, isLastParamPosInFunctionArgs: Boolean): SemanticType.Array {
+    private fun analyzeArrayType(at: ArrayType, inParams: Boolean): SemanticType.Array {
         val elem = analyzeType(at.type)
         val const = at.expressionInBrackets?.let { analyzeExpression(it).second }
         if (at.expressionInBrackets != null && const !is CompileTimeInteger) {
             throw SemanticException()
         }
-        if (!isLastParamPosInFunctionArgs && at.expressionInBrackets == null) {
+        if (!inParams && at.expressionInBrackets == null) {
             throw SemanticException()
         }
         val size = const?.let { (it as CompileTimeInteger).value }
@@ -592,12 +542,15 @@ class SemanticAnalyzer {
 
     // Various stuff for primitive types
 
-    private fun assignable(expected: SemanticType, actual: SemanticType): Boolean {
+    private fun assignable(expected: SemanticType, actual: SemanticType, assignmentForFunctionParameter: Boolean = false): Boolean {
         if (isPrimitive(expected) && isPrimitive(actual)) {
             return !(expected is SemanticType.Boolean && actual is SemanticType.Real)
         }
 
         if (expected is SemanticType.Array && actual is SemanticType.Array) {
+            if (assignmentForFunctionParameter && expected.size == null) {
+                return assignable(expected.elementType, actual.elementType)
+            }
             return expected.size == actual.size && assignable(expected.elementType, actual.elementType)
         }
 

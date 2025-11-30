@@ -21,6 +21,7 @@ import com.github.setterwars.compilercourse.codegen.traverser.cell.InMemoryArray
 import com.github.setterwars.compilercourse.codegen.traverser.cell.InMemoryRecord
 import com.github.setterwars.compilercourse.codegen.traverser.cell.MemoryReferencable
 import com.github.setterwars.compilercourse.codegen.traverser.cell.adjustStackValue
+import com.github.setterwars.compilercourse.codegen.traverser.cell.declareHelperVariable
 import com.github.setterwars.compilercourse.codegen.traverser.cell.load
 import com.github.setterwars.compilercourse.codegen.traverser.cell.store
 import com.github.setterwars.compilercourse.codegen.traverser.cell.toWasmValue
@@ -34,10 +35,10 @@ import com.github.setterwars.compilercourse.codegen.utils.randomString64
 fun WasmContext.createInitializerForMemoryReferencable(
     memoryReferencable: MemoryReferencable
 ): List<Instr> = buildList {
-    val allocatedAddressHolderVariableName = "#allocatedAddressHolderVariableName${randomString64()}"
-    declarationManager.declareLocalVariable(allocatedAddressHolderVariableName, CellValueType.I32)
-    addAll(MemoryManager.moveRFrameForCellValueType(CellValueType.I32))
-    val allocatedAddressHolder = declarationManager.resolveVariable(allocatedAddressHolderVariableName)
+    val allocatedAddressHolder = declareHelperVariable(
+        "allocatedAddressHolderVariableName",
+        CellValueType.I32
+    ).let { (v, iss) -> addAll(iss); v }
     addAll(
         allocatedAddressHolder.store {
             MemoryManager.allocateBytes(memoryReferencable.inMemoryBytesSize)
@@ -84,10 +85,10 @@ fun WasmContext.createInitializerForMemoryReferencable(
                 return@buildList
             }
 
-            val fillingIndexHolderVariableName = "#fillingIndexHolderVariableName${randomString64()}"
-            declarationManager.declareLocalVariable(fillingIndexHolderVariableName, CellValueType.I32)
-            addAll(MemoryManager.moveRFrameForCellValueType(CellValueType.I32))
-            val fillingIndexHolder = declarationManager.resolveVariable(fillingIndexHolderVariableName)
+            val fillingIndexHolder = declareHelperVariable(
+                "allocatedAddressHolderVariableName",
+                CellValueType.I32
+            ).let { (v, iss) -> addAll(iss); v }
             addAll(
                 fillingIndexHolder.store {
                     listOf(I32Const(0))
