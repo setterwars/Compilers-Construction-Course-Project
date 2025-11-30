@@ -27,7 +27,6 @@ import com.github.setterwars.compilercourse.codegen.traverser.cell.store
 import com.github.setterwars.compilercourse.codegen.traverser.cell.toWasmValue
 import com.github.setterwars.compilercourse.codegen.traverser.common.MemoryManager
 import com.github.setterwars.compilercourse.codegen.traverser.common.WasmContext
-import com.github.setterwars.compilercourse.codegen.utils.randomString64
 
 // Create instructions, that will allocate
 // memory for memoryReferencable (and probably fill it with some value)

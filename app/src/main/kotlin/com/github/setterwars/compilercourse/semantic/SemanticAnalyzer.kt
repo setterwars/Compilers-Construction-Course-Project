@@ -173,7 +173,7 @@ class SemanticAnalyzer {
         for (i in 0 until call.arguments.size) {
             val at = analyzeExpression(call.arguments[i].expression).first
             val pt = sym.parameterTypes[i]
-            if (!assignable(pt, at)) {
+            if (!assignable(pt, at, assignmentForFunctionParameter = true)) {
                 throw SemanticException(
                     "Argument ${i + 1} type mismatch for '$name'",
                     call.routineName.token.span.line
