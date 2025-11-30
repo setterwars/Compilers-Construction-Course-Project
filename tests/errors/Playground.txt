@@ -25,5 +25,5 @@ routine euclideanDistance(p1x: real, p1y: real, p2x: real, p2y: real): real is
     p2.x := p2x
     p2.y := p2y
 
-    return squareRoot(2.0)
+    return squareRoot((p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y))
 end

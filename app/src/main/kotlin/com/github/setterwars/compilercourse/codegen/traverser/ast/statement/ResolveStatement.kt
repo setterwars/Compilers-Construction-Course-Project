@@ -162,10 +162,6 @@ fun WasmContext.resolveRoutineCall(
     add(I32Const(MemoryManager.FRAME_R_ADDR))
     add(I32Load())
 
-    add(I32Const(MemoryManager.FRAME_L_ADDR))
-    add(I32Const(MemoryManager.FRAME_R_ADDR))
-    add(I32Load())
-    add(I32Store())
 
     val routine = declarationManager.resolveRoutine(routineCall.routineName.name())
     for ((i, arg) in routineCall.arguments.withIndex()) {
@@ -173,6 +169,12 @@ fun WasmContext.resolveRoutineCall(
         addAll(er.instructions)
         addAll(adjustStackValue(routine.parameters[i].cellValueType, er.onStackValueType))
     }
+
+    add(I32Const(MemoryManager.FRAME_L_ADDR))
+    add(I32Const(MemoryManager.FRAME_R_ADDR))
+    add(I32Load())
+    add(I32Store())
+
     add(Call(routine.index))
 
     // Frame pointer restoration. Move the return value from the function to the temporary storage

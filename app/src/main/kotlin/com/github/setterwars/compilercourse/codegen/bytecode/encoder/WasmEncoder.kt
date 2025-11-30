@@ -7,6 +7,9 @@ import com.github.setterwars.compilercourse.codegen.bytecode.ir.WasmExport
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.WasmFunc
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.WasmMemory
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.WasmModule
+import com.github.setterwars.compilercourse.codegen.bytecode.ir.WasmGlobal
+import com.github.setterwars.compilercourse.codegen.bytecode.ir.WasmI32Global
+import com.github.setterwars.compilercourse.codegen.bytecode.ir.WasmF64Global
 
 object WasmEncoder {
 
@@ -15,9 +18,10 @@ object WasmEncoder {
 
         writer.writePreamble()
 
-        val funcs = module.definitions.filterIsInstance<WasmFunc>()
+        val funcs    = module.definitions.filterIsInstance<WasmFunc>()
         val memories = module.definitions.filterIsInstance<WasmMemory>()
-        val exports = module.definitions.filterIsInstance<WasmExport>()
+        val exports  = module.definitions.filterIsInstance<WasmExport>()
+        val globals  = module.definitions.filterIsInstance<WasmGlobal>()   // <-- ADDED
 
         // --- Type section (id = 1) ---
         val funcTypes = funcs.map { it.type }.distinct()
@@ -57,6 +61,34 @@ object WasmEncoder {
                         u8(0x01)           // limits: min + max
                         writeU32(mem.minPages)
                         writeU32(mem.maxPages)
+                    }
+                }
+            }
+        }
+
+        // --- Global section (id = 6) ---  <-- ADDED
+        if (globals.isNotEmpty()) {
+            writer.section(6) {
+                writeVec(globals) { g ->
+                    when (g) {
+                        is WasmI32Global -> {
+                            // valtype
+                            writeValType(WasmValue.I32)
+                            // mutability: 0 = const, 1 = mut
+                            u8(if (g.mutable) 0x01 else 0x00)
+                            // init expr: i32.const <value> end
+                            u8(0x41) // i32.const
+                            writeS32(g.initValue)
+                            u8(0x0B) // end
+                        }
+                        is WasmF64Global -> {
+                            writeValType(WasmValue.F64)
+                            u8(if (g.mutable) 0x01 else 0x00)
+                            // init expr: f64.const <value> end
+                            u8(0x44) // f64.const
+                            writeF64(g.initValue)
+                            u8(0x0B) // end
+                        }
                     }
                 }
             }

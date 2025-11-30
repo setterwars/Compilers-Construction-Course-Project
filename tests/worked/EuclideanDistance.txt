@@ -6,7 +6,7 @@ end
 routine squareRoot(a: real): real is
     var low : real is 0.0
     var high : real is 1000000000.0
-    while low + 1.0 < high loop
+    while low + 0.000001 < high loop
         var mid : real is (low + high) / 2
         if mid * mid <= a then
             low := mid
@@ -14,6 +14,7 @@ routine squareRoot(a: real): real is
             high := mid
         end
     end
+    return low
 end
 
 routine euclideanDistance(p1x: real, p1y: real, p2x: real, p2y: real): real is

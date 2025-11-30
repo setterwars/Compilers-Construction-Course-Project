@@ -65,13 +65,15 @@ fun WasmContext.createInitializerForMemoryReferencable(
                     add(I32Store())
                 }
                 recordOffset += field.cellValueType.toWasmValue().bytes
-                allocatedAddressHolder.store {
-                    buildList {
-                        addAll(allocatedAddressHolder.load())
-                        add(I32Const(recordOffset))
-                        add(I32Binary(I32BinOp.Add))
+                addAll(
+                    allocatedAddressHolder.store {
+                        buildList {
+                            addAll(allocatedAddressHolder.load())
+                            add(I32Const(recordOffset))
+                            add(I32Binary(I32BinOp.Add))
+                        }
                     }
-                }
+                )
             }
             addAll(allocatedAddressHolder.load())
         }
@@ -86,9 +88,11 @@ fun WasmContext.createInitializerForMemoryReferencable(
             declarationManager.declareLocalVariable(fillingIndexHolderVariableName, CellValueType.I32)
             addAll(MemoryManager.moveRFrameForCellValueType(CellValueType.I32))
             val fillingIndexHolder = declarationManager.resolveVariable(fillingIndexHolderVariableName)
-            fillingIndexHolder.store {
-                listOf(I32Const(0))
-            }
+            addAll(
+                fillingIndexHolder.store {
+                    listOf(I32Const(0))
+                }
+            )
 
             add(
                 Loop(
