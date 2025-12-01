@@ -1,1 +1,39 @@
-routine add(a: integer, b: integer): integer => a + b
+routine buildMatrix(n: integer, arr : array[] real): array[4] array[4] real is
+    var result : array[4] array[4] real
+    for i in 1 .. n loop
+        for j in 1 .. n loop
+            result[i][j] := arr[1 + (i - 1) * n + (j - 1)]
+        end
+    end
+    return result
+end
+
+routine computeDeterminant(n: integer, matrix: array[] array[] real): real is
+    if n = 1 then
+        return matrix[1][1]
+    end
+
+    var helpMatrix: array[10] array[10] real
+    var result is 0
+    for column in 1 .. n loop
+        var constant : real
+        if column % 2 = 1 then
+            constant := matrix[1][column]
+        else
+            constant := -matrix[1][column]
+        end
+
+        for helpMatrixRow in 1 .. n-1 loop
+            for helpMatrixColumn in 1 .. n-1 loop
+                var fromRow is helpMatrixRow + 1
+                var fromColumn is helpMatrixColumn
+                if helpMatrixColumn >= column then
+                    fromColumn := fromColumn + 1
+                end
+                helpMatrix[helpMatrixRow][helpMatrixColumn] := matrix[fromRow][fromColumn]
+            end
+        end
+        result := result + constant * computeDeterminant(n - 1, helpMatrix)
+    end
+    return result
+end

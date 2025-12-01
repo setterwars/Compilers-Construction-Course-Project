@@ -82,7 +82,10 @@ fun WasmContext.resolveVariableDeclarationWithType(
             addAll(createInitializerForMemoryReferencable(variable.cellValueType.referencable))
         }
     }
-    initializerInstructions.addAll(variable.store(putValueInitialValueOnStack))
+    if (putValueInitialValueOnStack.isNotEmpty()) {
+        initializerInstructions.addAll(variable.store(putValueInitialValueOnStack))
+    }
+
     val initializerBlock = Block(
         null,
         initializerInstructions,

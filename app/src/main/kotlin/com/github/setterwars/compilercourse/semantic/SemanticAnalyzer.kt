@@ -74,7 +74,6 @@ class SemanticAnalyzer {
         }
     }
 
-    // TODO: handle all return paths
     private fun analyzeRoutineBody(
         rb: RoutineBody,
         expectedReturn: SemanticType?,
