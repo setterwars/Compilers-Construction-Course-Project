@@ -1,5 +1,7 @@
 package com.github.setterwars.compilercourse.codegen.traverser.common
 
+import com.github.setterwars.compilercourse.codegen.bytecode.ir.GlobalGet
+import com.github.setterwars.compilercourse.codegen.bytecode.ir.GlobalSet
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32BinOp
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Binary
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Const
@@ -37,6 +39,21 @@ class MemoryManager {
             add(I32Const(MEMORY_POINTER_ADDR))
             add(I32Load())
             add(I32Const(n))
+            add(I32Binary(I32BinOp.Add))
+            add(I32Store())
+        }
+
+        // Allocate space for contiguous n bytes, where n - is the i32 value on the stack
+        // Put the address of the first byte on the stack
+        fun allocateBytesRuntime(): List<Instr> = buildList {
+            add(GlobalSet(GlobalVariablesManager.ReservedGlobals.I32.ordinal))
+            add(I32Const(MEMORY_POINTER_ADDR))
+            add(I32Load())
+
+            add(I32Const(MEMORY_POINTER_ADDR))
+            add(I32Const(MEMORY_POINTER_ADDR))
+            add(I32Load())
+            add(GlobalGet(GlobalVariablesManager.ReservedGlobals.I32.ordinal))
             add(I32Binary(I32BinOp.Add))
             add(I32Store())
         }
