@@ -5,7 +5,6 @@ import com.github.setterwars.compilercourse.codegen.bytecode.ir.Instr
 import com.github.setterwars.compilercourse.codegen.traverser.ast.expression.resolveExpression
 import com.github.setterwars.compilercourse.codegen.traverser.ast.type.resolveCellValueType
 import com.github.setterwars.compilercourse.codegen.traverser.cell.CellValueType
-import com.github.setterwars.compilercourse.codegen.traverser.cell.MemoryReferencable
 import com.github.setterwars.compilercourse.codegen.traverser.cell.adjustStackValue
 import com.github.setterwars.compilercourse.codegen.traverser.cell.store
 import com.github.setterwars.compilercourse.codegen.traverser.common.MemoryManager
@@ -88,12 +87,12 @@ fun WasmContext.resolveVariableDeclarationWithType(
         null,
         initializerInstructions,
     )
-    if (declarationManager.inScope()) {
-        return VariableDeclarationResolveResult(
+    return if (declarationManager.inScope()) {
+        VariableDeclarationResolveResult(
             initializerBlock = initializerBlock
         )
     } else {
         declarationManager.addInitializerForGlobalVariable(name, initializerBlock)
+        VariableDeclarationResolveResult(null)
     }
-    return VariableDeclarationResolveResult(initializerBlock)
 }

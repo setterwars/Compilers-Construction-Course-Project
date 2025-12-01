@@ -1,18 +1,15 @@
-routine calculateSum(n : integer, a : array [] integer): integer
-
-routine main(x1: integer, x2: integer, x3: integer, x4: integer, x5: integer): integer is
-    var a : array [5] integer
-    a[1] := x1
-    a[2] := x2
-    a[3] := x3
-    a[4] := x4
-    a[5] := x5
-    return calculateSum(5, a)
-end
-
-routine calculateSum(n : integer, a : array [] integer): integer is
-    if n = 0 then
-        return 0
-    end
-    return a[n] + calculateSum(n - 1, a)
+routine main(
+    x11: real,
+    x12: real,
+    x13: real,
+    x21: real,
+    x22: real,
+    x23: real,
+    x31: real,
+    x32: real,
+    x33: real
+): real is
+    var matrix : array[3] array[3] real
+    matrix[1][1] := 10
+    return x33
 end

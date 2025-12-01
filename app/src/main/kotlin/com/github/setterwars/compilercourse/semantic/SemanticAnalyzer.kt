@@ -483,7 +483,7 @@ class SemanticAnalyzer {
     }
 
     private fun analyzeArrayType(at: ArrayType, inParams: Boolean): SemanticType.Array {
-        val elem = analyzeType(at.type)
+        val elem = analyzeType(at.type, inParams)
         val const = at.expressionInBrackets?.let { analyzeExpression(it).second }
         if (at.expressionInBrackets != null && const !is CompileTimeInteger) {
             throw SemanticException()
@@ -549,7 +549,7 @@ class SemanticAnalyzer {
 
         if (expected is SemanticType.Array && actual is SemanticType.Array) {
             if (assignmentForFunctionParameter && expected.size == null) {
-                return assignable(expected.elementType, actual.elementType)
+                return assignable(expected.elementType, actual.elementType, true)
             }
             return expected.size == actual.size && assignable(expected.elementType, actual.elementType)
         }

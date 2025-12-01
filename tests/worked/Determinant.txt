@@ -1,0 +1,53 @@
+routine main(
+    x11: real,
+    x12: real,
+    x13: real,
+    x21: real,
+    x22: real,
+    x23: real,
+    x31: real,
+    x32: real,
+    x33: real
+): real is
+    var matrix : array[3] array[3] real
+    matrix[1][1] = x11
+    matrix[1][2] = x12
+    matrix[1][3] = x13
+    matrix[2][1] = x21
+    matrix[2][2] = x22
+    matrix[2][3] = x23
+    matrix[3][1] = x31
+    matrix[3][2] = x32
+    matrix[3][3] = x33
+end
+
+routine computeSum
+
+routine computeDeterminant(n: int, matrix: array[] array[] real): real is
+    if n = 1 then
+        return matrix[1][1]
+    end
+
+    var helpMatrix: array[10] array[10] real
+    var result is 0
+    for column in 1..n loop
+        var constant : real
+        if i % 2 = 1 then
+            constant := a[1][column]
+        else
+            constant := -a[1][column]
+
+        for helpMatrixRow in 1..n-1 loop
+            for helpMatrixColumn in 1..n-1 loop
+                var fromRow is helpMatrixRow + 1
+                var fromColumn is helpMatrixColumn
+                if helpMatrixColumn >= column then
+                    fromColumn := fromColumn + 1
+                end
+                helpMatrix[helpMatrixRow][helpMatrixColumn] := matrix[fromRow][fromColumn]
+            end
+        end
+        result += constant * computeDeterminant(n - 1, helpMatrix)
+    end
+    return result
+end

@@ -26,7 +26,6 @@ import com.github.setterwars.compilercourse.codegen.traverser.cell.CellValueType
 import com.github.setterwars.compilercourse.codegen.traverser.cell.InMemoryArray
 import com.github.setterwars.compilercourse.codegen.traverser.cell.InMemoryRecord
 import com.github.setterwars.compilercourse.codegen.traverser.cell.adjustStackValue
-import com.github.setterwars.compilercourse.codegen.traverser.cell.declareHelperVariable
 import com.github.setterwars.compilercourse.codegen.traverser.cell.load
 import com.github.setterwars.compilercourse.codegen.traverser.cell.store
 import com.github.setterwars.compilercourse.codegen.traverser.cell.toWasmValue
@@ -154,7 +153,6 @@ fun WasmContext.resolveIfStatement(ifStatement: IfStatement): List<Instr> {
     }
 }
 
-// TODO: resolve variadic calls
 fun WasmContext.resolveRoutineCall(
     routineCall: RoutineCall
 ): List<Instr> = buildList {

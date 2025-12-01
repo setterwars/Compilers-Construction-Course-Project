@@ -2,7 +2,6 @@ package com.github.setterwars.compilercourse.codegen.traverser.ast.declaration
 
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.Br
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.BrIf
-import com.github.setterwars.compilercourse.codegen.bytecode.ir.Drop
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.F64Store
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32BinOp
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.I32Binary
@@ -49,9 +48,9 @@ fun WasmContext.createInitializerForMemoryReferencable(
         is InMemoryRecord -> {
             var recordOffset = 0
             for (field in memoryReferencable.fields) {
-                if (field.cellValueType is MemoryReferencable) {
+                if (field.cellValueType is CellValueType.MemoryReference) {
                     addAll(allocatedAddressHolder.load())
-                    addAll(createInitializerForMemoryReferencable(field.cellValueType))
+                    addAll(createInitializerForMemoryReferencable(field.cellValueType.referencable))
                     add(I32Store())
                 } else if (field.initialValue != null) {
                     addAll(allocatedAddressHolder.load())
@@ -66,7 +65,7 @@ fun WasmContext.createInitializerForMemoryReferencable(
                 }
                 recordOffset += field.cellValueType.toWasmValue().bytes
                 addAll(
-                    allocatedAddressHolder.store {
+                    allocatedAddressHolder.store { // TODO: fix error
                         buildList {
                             addAll(allocatedAddressHolder.load())
                             add(I32Const(recordOffset))
@@ -79,13 +78,13 @@ fun WasmContext.createInitializerForMemoryReferencable(
         }
 
         is InMemoryArray -> {
-            if (memoryReferencable.cellValueType !is MemoryReferencable) {
+            if (memoryReferencable.cellValueType !is CellValueType.MemoryReference) {
                 addAll(allocatedAddressHolder.load())
                 return@buildList
             }
 
             val fillingIndexHolder = declareHelperVariable(
-                "allocatedAddressHolderVariableName",
+                "fillingIndexHolderName",
                 CellValueType.I32
             ).let { (v, iss) -> addAll(iss); v }
             addAll(
@@ -98,41 +97,37 @@ fun WasmContext.createInitializerForMemoryReferencable(
                 Loop(
                     null,
                     instructions = buildList {
-                        add(
-                            Loop(
-                                null,
-                                instructions = buildList {
-                                    addAll(fillingIndexHolder.load())
-                                    add(I32Const(memoryReferencable.size!!))
-                                    add(I32Compare(I32RelOp.LtS))
-                                    add(I32Unary(I32UnaryOp.EQZ))
-                                    add(BrIf(1))
+                        addAll(fillingIndexHolder.load())
+                        add(I32Const(memoryReferencable.size!!))
+                        add(I32Compare(I32RelOp.LtS))
+                        add(I32Unary(I32UnaryOp.EQZ))
+                        add(BrIf(1))
 
-                                    addAll(allocatedAddressHolder.load())
-                                    addAll(fillingIndexHolder.load())
-                                    add(I32Const(memoryReferencable.cellValueType.toWasmValue().bytes))
-                                    add(I32Binary(I32BinOp.Mul))
-                                    add(I32Binary(I32BinOp.Add))
+                        addAll(allocatedAddressHolder.load())
+                        addAll(fillingIndexHolder.load())
+                        add(I32Const(memoryReferencable.cellValueType.toWasmValue().bytes))
+                        add(I32Binary(I32BinOp.Mul))
+                        add(I32Binary(I32BinOp.Add))
 
-                                    addAll(createInitializerForMemoryReferencable(memoryReferencable.cellValueType))
-                                    add(I32Store())
-
-                                    addAll(fillingIndexHolder.store {
-                                        buildList {
-                                            addAll(fillingIndexHolder.load())
-                                            add(I32Const(1))
-                                            add(I32Binary(I32BinOp.Add))
-                                        }
-                                    })
-                                    add(Br(0))
-                                }
+                        addAll(
+                            createInitializerForMemoryReferencable(
+                                memoryReferencable.cellValueType.referencable
                             )
                         )
-                        add(Drop)
-                        addAll(allocatedAddressHolder.load())
+                        add(I32Store())
+
+                        addAll(fillingIndexHolder.store {
+                            buildList {
+                                addAll(fillingIndexHolder.load())
+                                add(I32Const(1))
+                                add(I32Binary(I32BinOp.Add))
+                            }
+                        })
+                        add(Br(0))
                     }
                 )
             )
+            addAll(allocatedAddressHolder.load())
         }
     }
 }
