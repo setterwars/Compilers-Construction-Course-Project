@@ -1,0 +1,14 @@
+type Inner is record
+    var x : real is 10
+    var y : integer is 100
+end
+
+type Outer is record
+    var inner1 : Inner
+    var inner2 : Inner
+end
+
+routine main() : integer is
+    var outer : Outer
+    return outer.inner1.x + outer.inner1.y + outer.inner2.x + outer.inner2.y
+end

@@ -1,3 +1,13 @@
+routine computeSum(n: integer, arr: array[] array[] real): real is
+    var result : real is 0
+    for i in 1 .. n loop
+        for j in 1 .. n loop
+            result := result + arr[i][j]
+        end
+    end
+    return result
+end
+
 routine main(
     x11: real,
     x12: real,
@@ -10,24 +20,14 @@ routine main(
     x33: real
 ): real is
     var matrix : array[3] array[3] real
-    matrix[1][1] = x11
-    matrix[1][2] = x12
-    matrix[1][3] = x13
-    matrix[2][1] = x21
-    matrix[2][2] = x22
-    matrix[2][3] = x23
-    matrix[3][1] = x31
-    matrix[3][2] = x32
-    matrix[3][3] = x33
+    matrix[1][1] := x11
+    matrix[1][2] := x12
+    matrix[1][3] := x13
+    matrix[2][1] := x21
+    matrix[2][2] := x22
+    matrix[2][3] := x23
+    matrix[3][1] := x31
+    matrix[3][2] := x32
+    matrix[3][3] := x33
     return computeSum(3, matrix)
-end
-
-routine computeSum(n: int, arr: array[] array[] real): real is
-    var result : real is 0
-    for i in 1..n loop
-        for j in 1..n loop
-            result := result + arr[i][j]
-        end
-    end
-    return result
 end

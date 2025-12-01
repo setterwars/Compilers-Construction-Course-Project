@@ -1,15 +1,12 @@
-routine main(
-    x11: real,
-    x12: real,
-    x13: real,
-    x21: real,
-    x22: real,
-    x23: real,
-    x31: real,
-    x32: real,
-    x33: real
-): real is
-    var matrix : array[3] array[3] real
-    matrix[1][1] := 10
-    return x33
+routine fastPower(a: integer, n: integer): integer is
+    if n = 0 then
+        return 1
+    else
+        var p is fastPower(a, n / 2)
+        if n % 2 = 0 then
+            return p * p
+        else
+            return p * p * a
+        end
+    end
 end

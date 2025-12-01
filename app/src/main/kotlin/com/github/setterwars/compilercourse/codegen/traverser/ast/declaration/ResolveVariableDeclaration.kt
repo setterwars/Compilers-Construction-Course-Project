@@ -74,12 +74,12 @@ fun WasmContext.resolveVariableDeclarationWithType(
     val variable = declarationManager.resolveVariable(name)
 
     val putValueInitialValueOnStack: List<Instr> = buildList {
-        if (variable.cellValueType is CellValueType.MemoryReference) {
-            addAll(createInitializerForMemoryReferencable(variable.cellValueType.referencable))
-        } else if (variableDeclarationWithType.initialValue != null) {
+        if (variableDeclarationWithType.initialValue != null) {
             val er = resolveExpression(variableDeclarationWithType.initialValue)
             addAll(er.instructions)
             addAll(adjustStackValue(variable.cellValueType, er.onStackValueType))
+        } else if (variable.cellValueType is CellValueType.MemoryReference) {
+            addAll(createInitializerForMemoryReferencable(variable.cellValueType.referencable))
         }
     }
     initializerInstructions.addAll(variable.store(putValueInitialValueOnStack))

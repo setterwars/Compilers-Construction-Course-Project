@@ -1,5 +1,6 @@
 package com.github.setterwars.compilercourse.codegen.traverser.ast.declaration
 
+import com.github.setterwars.compilercourse.codegen.bytecode.ir.Block
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.Br
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.BrIf
 import com.github.setterwars.compilercourse.codegen.bytecode.ir.F64Store
@@ -50,10 +51,16 @@ fun WasmContext.createInitializerForMemoryReferencable(
             for (field in memoryReferencable.fields) {
                 if (field.cellValueType is CellValueType.MemoryReference) {
                     addAll(allocatedAddressHolder.load())
+                    add(I32Const(recordOffset))
+                    add(I32Binary(I32BinOp.Add))
+
                     addAll(createInitializerForMemoryReferencable(field.cellValueType.referencable))
                     add(I32Store())
                 } else if (field.initialValue != null) {
                     addAll(allocatedAddressHolder.load())
+                    add(I32Const(recordOffset))
+                    add(I32Binary(I32BinOp.Add))
+
                     val er = resolveExpression(field.initialValue)
                     addAll(er.instructions)
                     addAll(adjustStackValue(field.cellValueType, er.onStackValueType))
@@ -61,18 +68,8 @@ fun WasmContext.createInitializerForMemoryReferencable(
                         WasmValue.I32 -> add(I32Store())
                         WasmValue.F64 -> add(F64Store())
                     }
-                    add(I32Store())
                 }
                 recordOffset += field.cellValueType.toWasmValue().bytes
-                addAll(
-                    allocatedAddressHolder.store { // TODO: fix error
-                        buildList {
-                            addAll(allocatedAddressHolder.load())
-                            add(I32Const(recordOffset))
-                            add(I32Binary(I32BinOp.Add))
-                        }
-                    }
-                )
             }
             addAll(allocatedAddressHolder.load())
         }
@@ -94,37 +91,42 @@ fun WasmContext.createInitializerForMemoryReferencable(
             )
 
             add(
-                Loop(
-                    null,
-                    instructions = buildList {
-                        addAll(fillingIndexHolder.load())
-                        add(I32Const(memoryReferencable.size!!))
-                        add(I32Compare(I32RelOp.LtS))
-                        add(I32Unary(I32UnaryOp.EQZ))
-                        add(BrIf(1))
-
-                        addAll(allocatedAddressHolder.load())
-                        addAll(fillingIndexHolder.load())
-                        add(I32Const(memoryReferencable.cellValueType.toWasmValue().bytes))
-                        add(I32Binary(I32BinOp.Mul))
-                        add(I32Binary(I32BinOp.Add))
-
-                        addAll(
-                            createInitializerForMemoryReferencable(
-                                memoryReferencable.cellValueType.referencable
-                            )
-                        )
-                        add(I32Store())
-
-                        addAll(fillingIndexHolder.store {
-                            buildList {
+                Block(
+                    resultType = null,
+                    instructions = listOf(
+                        Loop(
+                            null,
+                            instructions = buildList {
                                 addAll(fillingIndexHolder.load())
-                                add(I32Const(1))
+                                add(I32Const(memoryReferencable.size!!))
+                                add(I32Compare(I32RelOp.LtS))
+                                add(I32Unary(I32UnaryOp.EQZ))
+                                add(BrIf(1))
+
+                                addAll(allocatedAddressHolder.load())
+                                addAll(fillingIndexHolder.load())
+                                add(I32Const(memoryReferencable.cellValueType.toWasmValue().bytes))
+                                add(I32Binary(I32BinOp.Mul))
                                 add(I32Binary(I32BinOp.Add))
+
+                                addAll(
+                                    createInitializerForMemoryReferencable(
+                                        memoryReferencable.cellValueType.referencable
+                                    )
+                                )
+                                add(I32Store())
+
+                                addAll(fillingIndexHolder.store {
+                                    buildList {
+                                        addAll(fillingIndexHolder.load())
+                                        add(I32Const(1))
+                                        add(I32Binary(I32BinOp.Add))
+                                    }
+                                })
+                                add(Br(0))
                             }
-                        })
-                        add(Br(0))
-                    }
+                        )
+                    )
                 )
             )
             addAll(allocatedAddressHolder.load())

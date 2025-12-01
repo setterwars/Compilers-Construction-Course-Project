@@ -1,0 +1,9 @@
+type PrefilledRecord is record
+    var field1 is 1
+    var field2 is 2
+end
+
+routine main() : integer is
+    var r : PrefilledRecord
+    return r.field1 + r.field2
+end

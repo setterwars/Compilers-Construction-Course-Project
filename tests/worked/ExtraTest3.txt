@@ -1,7 +1,0 @@
-routine add(a : integer, b : integer) : integer is
-end
-
-routine print_sum(x : integer, y : integer) is
-    var s : integer is 10
-    print s
-end

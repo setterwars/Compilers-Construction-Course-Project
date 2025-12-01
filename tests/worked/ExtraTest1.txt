@@ -1,5 +1,0 @@
-routine main() is
-  print a, b, c
-  print 1 + 2 * 3, (1 + 2) * 3
-  print true and false, true or false
-end
