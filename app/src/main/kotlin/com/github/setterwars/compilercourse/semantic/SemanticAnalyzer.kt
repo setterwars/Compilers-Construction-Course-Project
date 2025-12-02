@@ -7,7 +7,6 @@ import com.github.setterwars.compilercourse.semantic.semanticData.ExpressionSema
 import com.github.setterwars.compilercourse.semantic.semanticData.ModifiablePrimarySemanticData
 import com.github.setterwars.compilercourse.semantic.semanticData.UnaryIntegerSemanticData
 import com.github.setterwars.compilercourse.semantic.semanticData.UnaryRealSemanticData
-import kotlin.math.exp
 
 class SemanticException(
     message: String = "",
@@ -139,13 +138,13 @@ class SemanticAnalyzer {
         val sym = globalScope.lookupRoutine(currentRoutine!!)!!
         if (s.expression == null) {
             if (sym.returnType != null) {
-                throw SemanticException()
+                throw SemanticException("No expression found in return statement for function ${currentRoutine!!}")
             }
             return
         }
         val (t, _) = analyzeExpression(s.expression)
         if (sym.returnType == null || !assignable(sym.returnType, t)) {
-            throw SemanticException()
+            throw SemanticException("Type mismatch in return statement for routine ${currentRoutine!!}\nExpected type: ${sym.returnType}. Actual type: $t")
         }
     }
 
@@ -185,7 +184,7 @@ class SemanticAnalyzer {
     private fun analyzeWhileLoop(w: WhileLoop) {
         val (t, cv) = analyzeExpression(w.condition)
         if (t !is SemanticType.Boolean) {
-            throw SemanticException()
+            throw SemanticException("Non-boolean condition in while loop $w")
         }
         val saved = currentScope
         currentScope = SymbolTable(saved)
@@ -233,7 +232,7 @@ class SemanticAnalyzer {
         e.rest?.forEach { (op, r) ->
             val (rt, rc) = analyzeRelation(r)
             if (t !is SemanticType.Boolean || rt !is SemanticType.Boolean) {
-                throw SemanticException()
+                throw SemanticException("Non-boolean operands in boolean operator $op: $t and $rt")
             }
             val out = if (c != null && rc != null) {
                 val a = (c as CompileTimeBoolean).value
@@ -302,7 +301,7 @@ class SemanticAnalyzer {
                 FactorOperator.DIVISION -> arithmeticWidenRealOrInt(t, rt)
                 FactorOperator.MODULO -> {
                     if (t !is SemanticType.Integer || rt !is SemanticType.Integer) {
-                        throw SemanticException()
+                        throw SemanticException("Non-boolean operands in mod operator $op: $t and $rt")
                     }
                     SemanticType.Integer
                 }
@@ -384,7 +383,7 @@ class SemanticAnalyzer {
                     check(bcv is CompileTimeBoolean)
                     SemanticType.Boolean to CompileTimeBoolean(!bcv.value)
                 } else {
-                    throw SemanticException()
+                    throw SemanticException("Operator not is used with wrong type (integer or boolean expected): $bt")
                 }
             }
 
@@ -398,7 +397,7 @@ class SemanticAnalyzer {
                     when (bt) {
                         SemanticType.Real -> SemanticType.Real to null
                         SemanticType.Integer -> SemanticType.Integer to null
-                        else -> throw SemanticException()
+                        else -> throw SemanticException("Unary sign is used with wrong type (real or integer expected): $bt")
                     }
                 }
             }
@@ -447,15 +446,15 @@ class SemanticAnalyzer {
     private fun analyzeArrayAccessor(prev: SemanticType, acc: ArrayAccessor): SemanticType {
         val (t, cv) = analyzeExpression(acc.expression)
         if (t !is SemanticType.Integer) {
-            throw SemanticException()
+            throw SemanticException("Non-integer type in array accessor: $acc")
         }
         if (cv != null && cv !is CompileTimeInteger) {
-            throw SemanticException()
+            throw SemanticException("Compile-time value in array accessor is not integer: $acc")
         }
         if (prev is SemanticType.Array) {
             return prev.elementType
         }
-        throw SemanticException()
+        throw SemanticException("Array accessor is used with non-array type: $prev, $acc")
     }
 
     // ---------------- Types ----------------
@@ -485,10 +484,10 @@ class SemanticAnalyzer {
         val elem = analyzeType(at.type, inParams)
         val const = at.expressionInBrackets?.let { analyzeExpression(it).second }
         if (at.expressionInBrackets != null && const !is CompileTimeInteger) {
-            throw SemanticException()
+            throw SemanticException("Array size must be compile time integer, but $at is $const")
         }
         if (!inParams && at.expressionInBrackets == null) {
-            throw SemanticException()
+            throw SemanticException("Variable-sized array outside of function parameters: $at")
         }
         val size = const?.let { (it as CompileTimeInteger).value }
         return SemanticType.Array(size, elem)
@@ -554,7 +553,12 @@ class SemanticAnalyzer {
         }
 
         if (expected is SemanticType.Record && actual is SemanticType.Record) {
-            if (expected.fields != actual.fields) return false
+            if (expected.fields.size != actual.fields.size) {
+                return false
+            }
+            return expected.fields.zip(actual.fields).all {
+                (expectedField, actualField) -> assignable(expectedField.type, actualField.type)
+            }
         }
 
         return false
@@ -562,10 +566,10 @@ class SemanticAnalyzer {
 
     private fun arithmeticWidenRealOrInt(a: SemanticType, b: SemanticType): SemanticType {
         if (a !is SemanticType.SemanticPrimitiveType || b !is SemanticType.SemanticPrimitiveType) {
-            throw SemanticException()
+            throw SemanticException("Expected primitive type for expansion")
         }
         if (a is SemanticType.Boolean || b is SemanticType.Boolean) {
-            throw SemanticException()
+            throw SemanticException("Boolean type cannot be expanded")
         }
 
         if (a == SemanticType.Real || b == SemanticType.Real) return SemanticType.Real
@@ -609,7 +613,7 @@ class SemanticAnalyzer {
 
     private fun addConst(a: CompileTimeValue, b: CompileTimeValue): CompileTimeValue {
         if (a is CompileTimeBoolean || b is CompileTimeBoolean) {
-            throw SemanticException()
+            throw SemanticException("Boolean cannot be used in add")
         }
 
         return if (a is CompileTimeDouble || b is CompileTimeDouble) CompileTimeDouble(toDouble(a) + toDouble(b))
@@ -618,7 +622,7 @@ class SemanticAnalyzer {
 
     private fun subConst(a: CompileTimeValue, b: CompileTimeValue): CompileTimeValue {
         if (a is CompileTimeBoolean || b is CompileTimeBoolean) {
-            throw SemanticException()
+            throw SemanticException("Boolean cannot be used in sub")
         }
 
         return if (a is CompileTimeDouble || b is CompileTimeDouble) CompileTimeDouble(toDouble(a) - toDouble(b))
@@ -627,7 +631,7 @@ class SemanticAnalyzer {
 
     private fun mulConst(a: CompileTimeValue, b: CompileTimeValue): CompileTimeValue {
         if (a is CompileTimeBoolean || b is CompileTimeBoolean) {
-            throw SemanticException()
+            throw SemanticException("Boolean cannot be used in mul")
         }
 
         return if (a is CompileTimeDouble || b is CompileTimeDouble) CompileTimeDouble(toDouble(a) * toDouble(b))
@@ -636,7 +640,7 @@ class SemanticAnalyzer {
 
     private fun divConst(a: CompileTimeValue, b: CompileTimeValue): CompileTimeValue {
         if (a is CompileTimeBoolean || b is CompileTimeBoolean) {
-            throw SemanticException()
+            throw SemanticException("Boolean cannot be used in div")
         }
 
         return if (a is CompileTimeDouble || b is CompileTimeDouble) CompileTimeDouble(toDouble(a) / toDouble(b))

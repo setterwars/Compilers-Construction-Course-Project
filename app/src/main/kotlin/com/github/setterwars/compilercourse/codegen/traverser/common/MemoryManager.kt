@@ -20,6 +20,9 @@ class MemoryManager {
         const val RESERVED_I32_ADDR = RESERVED_F64_ADDR + 8
         const val MEMORY_BEGIN = RESERVED_I32_ADDR + 4
 
+        const val FRAMES_OFFSET_PAGES = 100
+        const val PAGE_SIZE = (1 shl 10) * 64
+
         // Generate instructions that will put on the stack value of the offset relative to
         // the current value of frame L pointer
         fun addressForOffset(offset: Int): List<Instr> = buildList {

@@ -1,7 +1,7 @@
 let wasmAdd = null;
 
 async function loadWasm() {
-  const response = await fetch('add.wasm');
+  const response = await fetch('program.wasm');
   const bytes = await response.arrayBuffer();
   const { instance } = await WebAssembly.instantiate(bytes);
   wasmAdd = instance.exports.add;
