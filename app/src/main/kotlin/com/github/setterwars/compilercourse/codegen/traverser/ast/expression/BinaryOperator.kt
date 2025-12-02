@@ -40,6 +40,7 @@ fun createOperator(
     allowedCellTypes: List<CellValueType>,
     onI32: Instr? = null, // when two top values in stack are signed I32
     onF64: Instr? = null, // when two top values in stack are F64,
+    forceReturnResult: CellValueType? = null,
 ): BinaryOperator {
     return object : BinaryOperator {
         override fun apply(op1: ApplyOperatorResult, op2: ApplyOperatorResult): ApplyOperatorResult {
@@ -62,16 +63,17 @@ fun createOperator(
             } else {
                 iss.add(onI32!!)
             }
-            val resultCellValueType = if (op1Type == CellValueType.F64 || op2Type == CellValueType.F64) {
-                CellValueType.F64
-            } else if (
-                (op1Type == CellValueType.I32 || op1Type is CellValueType.MemoryReference) ||
-                (op2Type == CellValueType.I32 || op2Type is CellValueType.MemoryReference)
-            ) {
-                CellValueType.I32
-            } else {
-                CellValueType.I32Boolean
-            }
+            val resultCellValueType = forceReturnResult
+                ?: if (op1Type == CellValueType.F64 || op2Type == CellValueType.F64) {
+                    CellValueType.F64
+                } else if (
+                    (op1Type == CellValueType.I32 || op1Type is CellValueType.MemoryReference) ||
+                    (op2Type == CellValueType.I32 || op2Type is CellValueType.MemoryReference)
+                ) {
+                    CellValueType.I32
+                } else {
+                    CellValueType.I32Boolean
+                }
             return ApplyOperatorResult(
                 onStackValueType = resultCellValueType,
                 instructions = iss
@@ -83,54 +85,61 @@ fun createOperator(
 val And = createOperator(
     allowedCellTypes = listOf(CellValueType.I32Boolean),
     onI32 = I32Binary(I32BinOp.And),
+    forceReturnResult = CellValueType.I32Boolean,
 )
 
 val Or = createOperator(
     allowedCellTypes = listOf(CellValueType.I32Boolean),
     onI32 = I32Binary(I32BinOp.Or),
+    forceReturnResult = CellValueType.I32Boolean,
 )
 
 val Xor = createOperator(
     allowedCellTypes = listOf(CellValueType.I32Boolean),
     onI32 = I32Binary(I32BinOp.Xor),
+    forceReturnResult = CellValueType.I32Boolean,
 )
 
 val Lt = createOperator(
     allowedCellTypes = listOf(CellValueType.I32, CellValueType.F64, CellValueType.I32Boolean),
     onI32 = I32Compare(I32RelOp.LtS),
     onF64 = F64Compare(F64RelOp.Lt),
+    forceReturnResult = CellValueType.I32Boolean,
 )
 
 val Le = createOperator(
     allowedCellTypes = listOf(CellValueType.I32, CellValueType.F64, CellValueType.I32Boolean),
     onI32 = I32Compare(I32RelOp.LeS),
     onF64 = F64Compare(F64RelOp.Le),
+    forceReturnResult = CellValueType.I32Boolean,
 )
-
 
 val Gt = createOperator(
     allowedCellTypes = listOf(CellValueType.I32, CellValueType.F64, CellValueType.I32Boolean),
     onI32 = I32Compare(I32RelOp.GtS),
     onF64 = F64Compare(F64RelOp.Gt),
+    forceReturnResult = CellValueType.I32Boolean,
 )
-
 
 val Ge = createOperator(
     allowedCellTypes = listOf(CellValueType.I32, CellValueType.F64, CellValueType.I32Boolean),
     onI32 = I32Compare(I32RelOp.GeS),
     onF64 = F64Compare(F64RelOp.Ge),
+    forceReturnResult = CellValueType.I32Boolean,
 )
 
 val Eq = createOperator(
     allowedCellTypes = listOf(CellValueType.I32, CellValueType.F64, CellValueType.I32Boolean),
     onI32 = I32Compare(I32RelOp.Eq),
     onF64 = F64Compare(F64RelOp.Eq),
+    forceReturnResult = CellValueType.I32Boolean,
 )
 
 val Ne = createOperator(
     allowedCellTypes = listOf(CellValueType.I32, CellValueType.F64, CellValueType.I32Boolean),
     onI32 = I32Compare(I32RelOp.Ne),
     onF64 = F64Compare(F64RelOp.Ne),
+    forceReturnResult = CellValueType.I32Boolean,
 )
 
 val Add = createOperator(

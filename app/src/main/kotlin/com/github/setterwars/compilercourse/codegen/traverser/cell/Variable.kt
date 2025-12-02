@@ -86,8 +86,17 @@ fun WasmContext.declareHelperVariable(
     cellValueType: CellValueType,
 ): Pair<Variable, List<Instr>> {
     val helperVariableName = "#$prefixName${randomString64()}"
-    declarationManager.declareLocalVariable(helperVariableName, cellValueType)
-    val instructions = MemoryManager.moveRFrameForCellValueType(CellValueType.I32)
-    val helperVariable = declarationManager.resolveVariable(helperVariableName)
-    return helperVariable to instructions
+    return if (declarationManager.inScope()) {
+        declarationManager.declareLocalVariable(helperVariableName, cellValueType)
+        val instructions = MemoryManager.moveRFrameForCellValueType(cellValueType)
+        val helperVariable = declarationManager.resolveVariable(helperVariableName)
+        helperVariable to instructions
+    } else {
+        declarationManager.declareGlobalVariable(
+            helperVariableName,
+            cellValueType,
+        )
+        val helperVariable = declarationManager.resolveVariable(helperVariableName)
+        return helperVariable to emptyList()
+    }
 }

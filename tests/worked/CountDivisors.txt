@@ -1,0 +1,14 @@
+routine countDivisors(n : integer) : integer
+    var i is 2
+    var result is 0
+    while i * i <= n loop
+        if n % i == 0 then
+            result := result + 1
+            if n / i != i then
+                result := result + 1
+            end
+        end
+    end
+
+    return result
+end

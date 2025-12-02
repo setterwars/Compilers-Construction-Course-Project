@@ -1,16 +1,14 @@
-routine calculateSum(n : integer, a : array [] integer): integer is
-    if n = 0 then
-        return 0
-    end
-    return a[n] + calculateSum(n - 1, a)
+type Point is record
+    var x : integer
+    var y : real
 end
 
-routine main(x1: integer, x2: integer, x3: integer, x4: integer, x5: integer): integer is
-    var a : array [5] integer
-    a[1] := x1
-    a[2] := x2
-    a[3] := x3
-    a[4] := x4
-    a[5] := x5
-    return calculateSum(5, a)
+type A is record
+    var b : array[5] Point
+end
+
+routine main() : real is
+    var a : A
+    a.b[1].y := -17.8
+    return a.b[1].y
 end

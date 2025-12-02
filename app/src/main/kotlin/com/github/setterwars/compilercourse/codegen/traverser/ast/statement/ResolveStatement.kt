@@ -129,6 +129,7 @@ fun WasmContext.resolveAssignment(
             }
             iss.addAll(accessorInstrs)
         }
+
         iss.addAll(er.instructions)
         iss.addAll(adjustStackValue(currentCellValueTypeOnStack, er.onStackValueType))
         when (currentCellValueTypeOnStack.toWasmValue()) {

@@ -3,20 +3,33 @@ package com.github.setterwars.compilercourse.parser
 import com.github.setterwars.compilercourse.lexer.Token
 import com.github.setterwars.compilercourse.lexer.TokenType
 import com.github.setterwars.compilercourse.parser.nodes.Program
+import kotlin.math.max
 import kotlin.random.Random
 
 class Parser(internal val tokens: List<Token>) {
+    private var farthestReachedToken: Int = 0
+
     fun parse(): Program {
-        val parseResult = parseProgram(0).getOrThrow()
-        val indexAfterStop = tokens.getOrNull(skipWhitespaces(parseResult.nextIndex))?.tokenType
-        if (indexAfterStop == TokenType.EOF) {
-            return parseResult.result
-        } else {
-            throw WrongTokenTypeException(token = tokens.getOrNull(parseResult.nextIndex), TokenType.EOF)
+        try {
+            val parseResult = parseProgram(0).getOrThrow()
+            val indexAfterStop = tokens.getOrNull(skipWhitespaces(parseResult.nextIndex))?.tokenType
+            if (indexAfterStop == TokenType.EOF) {
+                return parseResult.result
+            } else {
+                throw WrongTokenTypeException(token = tokens.getOrNull(parseResult.nextIndex), TokenType.EOF)
+            }
+        } catch (e: Exception) {
+            val t = getToken(farthestReachedToken)!!
+            println("""
+                Parser error!
+                The error is probably at token ${t.tokenType.name} at line ${t.span.line + 1} on column ${t.span.begin.column + 1}
+            """.trimIndent())
+            throw e
         }
     }
 
     internal fun getToken(index: Int): Token? {
+        farthestReachedToken = max(farthestReachedToken, index)
         return tokens.getOrNull(index)
     }
 
@@ -191,7 +204,7 @@ class Parser(internal val tokens: List<Token>) {
             currentIndex < tokens.size &&
             getToken(currentIndex)?.tokenType in setOf(
                 TokenType.NEW_LINE,
-                TokenType.WHITESPACE
+                TokenType.WHITESPACE,
             )
         ) {
             currentIndex++
