@@ -1,16 +1,25 @@
-Запускаем тесты (Из корневой папки! + работает только в unix):
-```shell
-chmod +x ./scripts/run_all_tests.sh
-./scripts/run_all_tests.sh
-```
-По сути, тестер просто запускает команду ``./gradlew app:run --args="../tests/worked/..."`` для всех файлов из директории
-`tests/worked/`
+# Компилятор для языка I
+- Hand-written parser
+- Target platform: WASM
 
+To compile the program use the following command:
 ```shell
-`./gradlew app:run --args="../tests/errors/Playground.txt --semantic"
+app:run --args="<source-file> [--output <output-file>]"
 ```
 
-Запускаем компилятор:
-- `./gradlew app:run --args="../tests/worked/EuclideanDistanceInteger.txt --semantic"`
-- После запуска, будет сгенерирован файл `app/output/program.wasm`
-- Далее делаем с этим файлом что хотим (например, `node run.js` )
+Examples:
+```shell
+./gradlew app:run --args="../tests/errors/Playground.txt --output output/program.wasm"
+```
+```shell
+./gradlew app:run --args="../samples/sudoku/source --output ../samples/sudoku/program.wasm"
+```
+
+After the compilation you need to find the suitable WASM runtime. For example, V8 can execute WASM:
+```shell
+node app/output/simple_run.js
+```
+
+```shell
+node samples/sudoku/run.js
+```

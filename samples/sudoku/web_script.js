@@ -138,6 +138,34 @@ function readMatrixFromInputs() {
     return matrix;
 }
 
+function renderSolution(matrix) {
+    for (let i = 0; i < 9; i++) {
+        for (let j = 0; j < 9; j++) {
+            solutionCells[i][j].textContent = matrix[i][j] || "";
+        }
+    }
+}
+
+document.getElementById("solve").addEventListener("click", async () => {
+    statusEl.textContent = "Solving...";
+    try {
+        await wasmReady;
+
+        const inputMatrix = readMatrixFromInputs();
+        const { solveResult, solved } = solveSudokuWithWasm(inputMatrix);
+
+        renderSolution(solved);
+
+        statusEl.textContent =
+            typeof solveResult === "number" ?
+            `Solved (WASM returned: ${solveResult})` :
+            "Solved.";
+    } catch (e) {
+        console.error(e);
+        statusEl.textContent = "Error while solving; see console.";
+    }
+});
+
 // WASM STUFF BEGINS HERE
 let wasmInstance = null;
 let wasmExports = null;
@@ -145,9 +173,7 @@ let wasmExports = null;
 const wasmReady = (async function initWasm() {
     const response = await fetch("program.wasm");
     const bytes = await response.arrayBuffer();
-    const {
-        instance
-    } = await WebAssembly.instantiate(bytes, {});
+    const { instance } = await WebAssembly.instantiate(bytes, {});
     wasmInstance = instance;
     wasmExports = instance.exports;
 })();
@@ -191,34 +217,3 @@ function solveSudokuWithWasm(matrix) {
         solved
     };
 }
-
-function renderSolution(matrix) {
-    for (let i = 0; i < 9; i++) {
-        for (let j = 0; j < 9; j++) {
-            solutionCells[i][j].textContent = matrix[i][j] || "";
-        }
-    }
-}
-
-document.getElementById("solve").addEventListener("click", async () => {
-    statusEl.textContent = "Solving...";
-    try {
-        await wasmReady;
-
-        const inputMatrix = readMatrixFromInputs();
-        const {
-            solveResult,
-            solved
-        } = solveSudokuWithWasm(inputMatrix);
-
-        renderSolution(solved);
-
-        statusEl.textContent =
-            typeof solveResult === "number" ?
-            `Solved (WASM returned: ${solveResult})` :
-            "Solved.";
-    } catch (e) {
-        console.error(e);
-        statusEl.textContent = "Error while solving; see console.";
-    }
-});
